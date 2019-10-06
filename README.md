@@ -1,2 +1,4 @@
-# statemachine
-Fun with state machines and automata
+# StateMachine
+_Fun with state machines and automata_
+
+---
