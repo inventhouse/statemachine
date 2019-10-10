@@ -43,7 +43,7 @@ class StateMachineCore(object):
         """Tests input `i` against current state's transitions, changes state, and returns the output of the first matching transition's action."""
         self.i_count += 1
         tlist = self.transitions.get(self.state, [])
-        for (test, dst, action, tag) in tlist + self.transitions[None]:  # Transitions starting from None are added to all states
+        for (test, dst, action, tag) in tlist + self.transitions.get(None, []):  # Transitions starting from None are added to all states
             t_info = TransitionInfo(self.state, dst, self.i_count, None)
             result = test(i, t_info) if callable(test) else test == i
             t_info = t_info._replace(result=result)
@@ -58,14 +58,6 @@ class StateMachineCore(object):
             self.tracer(i, TraceInfo(t_info, test, action, tag, None, self.state))
 
         return self.unrecognized(i, self.state, self.i_count)
-
-
-    def parse(self, inputs):
-        "Feeds items from the `inputs` iterable into the state machine and yields truish outputs"
-        for i in inputs:
-            out = self.input(i)
-            if out:
-                yield out
 #####
 
 
@@ -78,7 +70,7 @@ class StateMachine(StateMachineCore):
     def __init__(self, start, tracer=True, unrecognized=True):
         """Creates a state machine in the start state with an optional tracer and unrecognized input handler.
 
-        An optional `tracer` gets called after each transition tested with the input and a `TraceInfo`.  By default, this uses `RecentTracer` to collect the last five significant transitions (self-transitions are counted but only the last of them is kept) to be raised by the default `unrecognized` handler.  An integer can be passed to set the trace depth.  This can be set to another callable, such as a `Tracer` instance, for a complete, quite verbose, log of the operation of your state machine; the recent trace will still be collected if the default unrecognized handler is being used.
+        An optional `tracer` gets called after each transition tested with the input and a `TraceInfo`.  By default, this uses `RecentTracer` to collect the last five significant transitions (self-transitions are counted but only the last of them is kept) to be raised by the default `unrecognized` handler.  An integer can be passed to set the trace depth (or unlimited if negative).  This can be set to another callable, such as a `Tracer` instance, for a complete, quite verbose, log of the operation of your state machine; the recent trace will still be collected if the default unrecognized handler is being used.
 
         If an input does not match any transition the `unrecognized` handler is called with the input, state and input count.  By default this raises a `ValueError` with a short trace of recent transitions.  It can be set to `False` to disable the default tracing and ignore unrecognized input.
         """
@@ -93,7 +85,7 @@ class StateMachine(StateMachineCore):
         if unrecognized is True:
             # Use default tracer and unrecognized handler
             traceDepth = 5  # Each transition prints 4-5 lines of trace
-            if type(tracer) == int:  # Tricksy, but really easy to set the depth
+            if type(tracer) == int:
                 traceDepth = tracer
             rt = RecentTracer(depth=traceDepth)
             self.unrecognized = rt.throw
@@ -118,6 +110,24 @@ class StateMachine(StateMachineCore):
         super().add(state, test, dst, action=action, tag=tag)
 
 
+    def build(self, state, *transitions):
+        """Add several transitions to a state.
+
+        Remaining arguments for transitions can be given as any combination of:
+        - *args-compatible tuple like (test, dst, action)
+        - **kwargs-compatible dict like {"test": test, "dst": dst, "action": action}
+        - or a pair like ((test, dst), {"action": action})
+        """
+        for t in transitions:
+            if type(t) == dict:
+                self.add(state, **t)
+            elif [ type(i) for i in t ] == [tuple, dict]:
+                args, kwargs = t
+                self.add(state, *args, **kwargs)
+            else:
+                self.add(state, *t)
+
+
     def input(self, i):
         """Tests input `i` against current state's transitions, changes state, and returns the output of the first matching transition's action.
 
@@ -132,7 +142,10 @@ class StateMachine(StateMachineCore):
 
     def parse(self, inputs):
         "Feeds items from the `inputs` iterable into the state machine and yields truish outputs"
-        return super().parse(inputs)
+        for i in inputs:
+            out = self.input(i)
+            if out:
+                yield out
 #####
 
 
@@ -223,6 +236,8 @@ class RecentTracer(object):
         """Creates a RecentTracer instance with trace depth.
 
         The instance is callable and can be used directly as the `tracer` callback of a `StateMachine`, likewise the `throw` method can be used as the `unrecognized` callback (and both are used default)."""
+        if depth < 0:
+            depth = None  # Unlimited depth
         self.buffer = deque(maxlen=depth)  # [(t_info, (loop_count, t_count, i_count)), ...]
         self.t_count = 0  # Count of tested transitions since the last one that was followed
 
@@ -373,22 +388,32 @@ if __name__ == "__main__":
         return "Written"
 
     world = StateMachine("start")
-    # world = StateMachine("start", tracer=20)  # Keep a much deeper trace
+    # world = StateMachine("start", tracer=20)  # Keep a deeper trace, -1 for unlimited
     # world = StateMachine("start", tracer=Tracer(printer=lambda s: print(f"T: {s}")))  # Complete tracer with prefix
-    world.add("start", trueTest, above, lookAction, tag="Start")
+    world.add(state="start", test=trueTest, dst=above, action=lookAction, tag="Start")
     world.add(above, inTest(["d", "down", "below",]), below, lookAction, tag="Go below")
     world.add(above, inTest(["s", "sail",]), None, sailAction, tag="Sail")
 
-    world.add(below, inTest(["u", "up", "above",]), above, lookAction, tag="Go above")
-    world.add(below, inTest(["r", "read", "read logbook",]), None, lambda *_: adlib([messages["log"], log_entries]), tag="Read")
-    world.add(below, inTest(["w", "write", "log",]), None, writeAction, tag="Write")
-    world.add(below, inTest(["s", "sleep", "bunk", "lie down", "lay down", "nap",]), None, lambda *_: adlib(messages["sleep"]), tag="Sleep")
+    world.build(
+        below,
+        # Try all the different ways `build` lets us specify transitions
+        (inTest(["u", "up", "above",]), above, lookAction, "Go above"),
+        ((inTest(["r", "read", "read logbook",]), None), 
+            {"action": lambda *_: adlib([messages["log"], log_entries]), "tag": "Read"}),
+        ((inTest(["w", "write", "log",]), None, writeAction), {"tag": "Write"}),
+        {
+            "test": inTest(["s", "sleep", "bunk", "lie down", "lay down", "nap",]), 
+            "dst": None, 
+            "action": lambda *_: adlib(messages["sleep"]), 
+            "tag": "Sleep",
+        }
+    )
 
     world.add(None, inTest(["l", "look",]), None, lookAction, tag="Look")
     world.add(None, lambda i,_: i != "crash", None, "Sorry, you can't do that.", tag="Not crash")  # You can type "crash" to dump the state machine's trace
 
     print("Smooth Sailing")
-    world.input(input("Press enter to start. "))
+    print(world.input(input("Press enter to start. ")))
     while True:
         out = world.input(input("> "))
         if out:
