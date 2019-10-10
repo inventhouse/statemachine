@@ -1,0 +1,98 @@
+#!/usr/bin/env python3
+# Copyright (c) 2019 Benjamin Holt -- MIT License
+
+"""
+Parse only my status out of a team standup message
+"""
+import re
+
+import statemachine as sm
+#####
+
+
+###  Main  ###
+def main(args, env, inFile):
+    name = args[1] if len(args) >= 2 else "bholt"
+
+    parser = sm.StateMachine("top", tracer=-1)
+    # parser = sm.StateMachine("top", unrecognized=False)
+    # parser = sm.StateMachine("top", tracer=sm.Tracer(printer=lambda s: print(f"T: {s}")))
+    # parser = sm.StateMachine("top", tracer=2)
+
+    myUser = f"@{name}"
+    myStatus = (sm.trueTest, None, lambda i,_: f"> {i}")
+    otherUser = sm.matchTest(r"^@\w+$")
+
+    startYesterday = {
+        "test": "1. What did you do yesterday?", 
+        "dst": "yesterday", 
+        "action": "_Yesterday:_",
+    }
+    startToday = {
+        "test": "2. What do you commit to today?", 
+        "dst": "today", 
+        "action": "_Today:_",
+    }
+    startHowFar = {
+        "test": "3. How far along are you? Do you think you'll finish soon?", 
+        "dst": "top", 
+    }
+
+    parser.build(
+        "top",
+        startYesterday,
+        startToday,
+        ((sm.trueTest, None), {"tag":"Other line"}),
+    )
+
+    parser.build(
+        "yesterday",
+        startToday,
+        (myUser, "myYesterday"),
+        ((sm.trueTest, None), {"tag":"Other line"}),
+    )
+
+    parser.build(
+        "myYesterday",
+        startToday,
+        (otherUser, "yesterday"),
+        myStatus,
+    )
+
+    parser.build(
+        "today",
+        startHowFar,
+        (myUser, "myToday"),
+        ((sm.trueTest, None), {"tag":"Other line"}),
+    )
+
+    parser.build(
+        "myToday",
+        startHowFar,
+        (otherUser, "today"),
+        myStatus,
+    )
+ 
+    status = ["*Check-in*",]
+    for out in parser.parse(( l.rstrip() for l in inFile )):
+        status.append(out)
+
+    print("\n".join(status))
+    # print("\n".join(parser.tracer.formatTrace()))
+#####
+
+
+#####
+if __name__ == "__main__":
+    import os, sys
+    if len(sys.argv) >= 2 and sys.argv[1] in ["-h", "--help"]:
+        h = """Simple parser for extracting my status from a standup summary form; not likely to be useful to anyone else.
+
+        Usage: statusparser [name]    Extract 'yesterday' and 'today' status for name; defaults to "bholt"
+        """
+        print(h)
+        sys.exit(0)
+
+    _xit = main(sys.argv, os.environ, sys.stdin)  # pylint: disable=invalid-name
+    sys.exit(_xit)
+#####
