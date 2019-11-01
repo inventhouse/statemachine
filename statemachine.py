@@ -101,7 +101,7 @@ class StateMachine(StateMachineCore):
     def add(self, state, test, dst, action=None, tag=None):
         """Add transition from `state` to `dst` with `test`, and optional `action`, and debugging `tag`.  Transitions will be tested in the order they added.
 
-        `state` and `dst` must be hashable and are automatically added.  If `state` is `None`, this transition will be implictly added to all states, and evaluated after any explict transitions.  If `dst` is `None`, the machine will remain in the same state (self-transition or the action could directly set a dynamic state).
+        `state` and `dst` must be hashable; if `state` is `None`, this transition will be implictly added to all states, and evaluated after any explict transitions.  If `dst` is `None`, the machine will remain in the same state (self-transition or the action could directly set a dynamic state).
 
         If `test` is callable, it will be called as described below, otherwise it will be compared against the input (`test == input`)
 
@@ -116,7 +116,7 @@ class StateMachine(StateMachineCore):
         Remaining arguments for transitions can be given as any combination of:
         - *args-compatible tuple like (test, dst, action)
         - **kwargs-compatible dict like {"test": test, "dst": dst, "action": action}
-        - or a pair like ((test, dst), {"action": action})
+        - or a pair, one of each, like ((test, dst), {"action": action})
         """
         for t in transitions:
             if type(t) == dict:
