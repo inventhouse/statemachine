@@ -12,73 +12,83 @@ import statemachine as sm
 #####
 
 
-###  Main  ###
-if __name__ == "__main__":
+###  Helpers  ###
+def adlib(x):
+    "Dynamically assemble messages from nested collections of parts.  Tuples are pieces to be strung together, lists are variants to choose among; anything else is used as a string"
+    if type(x) is tuple:
+        return "".join([ adlib(i) for i in x ])  # Joining with "|" can be helpful to see how messages get put together
+    if type(x) is list:
+        return adlib(random.choice(x))
+    return str(x)
+#####
 
-    def adlib(x):
-        "Dynamically assemble messages from nested collections of parts.  Tuples are pieces to be strung together, lists are variants to choose among; anything else is used as a string"
-        if type(x) is tuple:
-            return "".join([ adlib(i) for i in x ])  # Joining with "|" can be helpful to see how messages get put together
-        if type(x) is list:
-            return adlib(random.choice(x))
-        return str(x)
 
-    (above, below) = ("above", "below")
-    messages = {
-        above: ("You are on the deck of a small sailboat on a ", ["calm", "serene", "blue", "clear", "glistening",], " sea; a hatch leads below."),
-        below: ("You are in the ", ["cozy", "homey", "snug",], " cabin of a small boat, just enough room for a bunk and a tiny desk with a logbook; a hatch leads up."),
-        "sail": ("You ", ["set", "adjust", "tack",], " your sail ", ["to", "toward", "for"], " {}."),
-        "sleep": ("The bunk is ", ["soft", "comfortable", "warm", "cozy",], " and you ", ["rest", "sleep", "snooze", "nap", "doze",], " ", ["well", "deeply", "blissfully", "nicely"], "."),
-        "log": [("Weather was ", ["fair", "good", "lovely",], "."),
-            (["Good", "Quick", "Slow",], " sailing ", ["today", ("this ", ["morning", "afternoon", "evening",])], "."),
-        ],
+###  Fixtures  ###
+(above, below) = ("above", "below")
+messages = {
+    above: ("You are on the deck of a small sailboat on a ", ["calm", "serene", "blue", "clear", "glistening",], " sea; a hatch leads below."),
+    below: ("You are in the ", ["cozy", "homey", "snug",], " cabin of a small boat, just enough room for a bunk and a tiny desk with a logbook; a hatch leads up."),
+    "sail": ("You ", ["set", "adjust", "tack",], " your sail ", ["to", "toward", "for"], " {}."),
+    "sleep": ("The bunk is ", ["soft", "comfortable", "warm", "cozy",], " and you ", ["rest", "sleep", "snooze", "nap", "doze",], " ", ["well", "deeply", "blissfully", "nicely"], "."),
+    "log": [("Weather was ", ["fair", "good", "lovely",], "."),
+        (["Good", "Quick", "Slow",], " sailing ", ["today", ("this ", ["morning", "afternoon", "evening",])], "."),
+    ],
+}
+#####
+
+
+###  Actions  ###
+def lookAction(i, t):
+    s = t.dst if t.dst is not None else t.state
+    return adlib(messages[s])
+
+def sailAction(i, t):
+    s = input("Where to? > ")
+    return adlib(messages["sail"]).format(s)
+
+log_entries = [(["Fair", "Nice", "Brisk",], " weather."),]  # Put one bogus entry in 'cos choose can't take an empty array
+def writeAction(*_):
+    s = input("What do you want to say? > ")
+    log_entries.append(s)
+    return "Written"
+#####
+
+
+###  World  ###
+world = sm.StateMachine("start")
+# world = StateMachine("start", tracer=20)  # Keep a deeper trace, -1 for unlimited
+# world = StateMachine("start", tracer=Tracer(printer=lambda s: print(f"T: {s}")))  # Complete tracer with prefix
+world.add(state="start", test=sm.trueTest, dst=above, action=lookAction, tag="Start")
+world.add(above, sm.inTest(["d", "down", "below",]), below, lookAction, tag="Go below")
+world.add(above, sm.inTest(["s", "sail",]), None, sailAction, tag="Sail")
+
+world.build(
+    below,
+    # Try all the different ways `build` lets us specify transitions
+    (sm.inTest(["u", "up", "above",]), above, lookAction, "Go above"),
+    ((sm.inTest(["r", "read", "read logbook",]), None), 
+        {"action": lambda *_: adlib([messages["log"], log_entries]), "tag": "Read"}),
+    ((sm.inTest(["w", "write", "log",]), None, writeAction), {"tag": "Write"}),
+    {
+        "test": sm.inTest(["s", "sleep", "bunk", "lie down", "lay down", "nap",]), 
+        "dst": None, 
+        "action": lambda *_: adlib(messages["sleep"]), 
+        "tag": "Sleep",
     }
+)
 
-    def lookAction(i, t):
-        s = t.dst if t.dst is not None else t.state
-        return adlib(messages[s])
+world.add(None, sm.inTest(["l", "look",]), None, lookAction, tag="Look")
+world.add(None, lambda i,_: i != "crash", None, "Sorry, you can't do that.", tag="Not crash")  # You can type "crash" to dump the state machine's trace
+#####
 
-    def sailAction(i, t):
-        s = input("Where to? > ")
-        return adlib(messages["sail"]).format(s)
 
-    log_entries = [(["Fair", "Nice", "Brisk",], " weather."),]  # Put one bogus entry in 'cos choose can't take an empty array
-    def writeAction(*_):
-        s = input("What do you want to say? > ")
-        log_entries.append(s)
-        return "Written"
-
-    world = sm.StateMachine("start")
-    # world = StateMachine("start", tracer=20)  # Keep a deeper trace, -1 for unlimited
-    # world = StateMachine("start", tracer=Tracer(printer=lambda s: print(f"T: {s}")))  # Complete tracer with prefix
-    world.add(state="start", test=sm.trueTest, dst=above, action=lookAction, tag="Start")
-    world.add(above, sm.inTest(["d", "down", "below",]), below, lookAction, tag="Go below")
-    world.add(above, sm.inTest(["s", "sail",]), None, sailAction, tag="Sail")
-
-    world.build(
-        below,
-        # Try all the different ways `build` lets us specify transitions
-        (sm.inTest(["u", "up", "above",]), above, lookAction, "Go above"),
-        ((sm.inTest(["r", "read", "read logbook",]), None), 
-            {"action": lambda *_: adlib([messages["log"], log_entries]), "tag": "Read"}),
-        ((sm.inTest(["w", "write", "log",]), None, writeAction), {"tag": "Write"}),
-        {
-            "test": sm.inTest(["s", "sleep", "bunk", "lie down", "lay down", "nap",]), 
-            "dst": None, 
-            "action": lambda *_: adlib(messages["sleep"]), 
-            "tag": "Sleep",
-        }
-    )
-
-    world.add(None, sm.inTest(["l", "look",]), None, lookAction, tag="Look")
-    world.add(None, lambda i,_: i != "crash", None, "Sorry, you can't do that.", tag="Not crash")  # You can type "crash" to dump the state machine's trace
-
-    print("Smooth Sailing", flush=True)
-    time.sleep(0.1)  # HACK: wait for flush; sometimes prompt prints out-of-order with print output in spite of flush=True
-    print(world.input(input("Press enter to start. ")), flush=True)
-    while True:
-        time.sleep(0.1)  # HACK: wait for flush
-        out = world.input(input("> "))
-        if out:
-            print(out, flush=True)
+###  Main  ###
+print("Smooth Sailing", flush=True)
+time.sleep(0.1)  # HACK: wait for flush; sometimes prompt prints out-of-order with print output in spite of flush=True
+print(world.input(input("Press enter to start. ")), flush=True)
+while True:
+    time.sleep(0.1)  # HACK: wait for flush
+    out = world.input(input("> "))
+    if out:
+        print(out, flush=True)
 #####
