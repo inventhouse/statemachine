@@ -141,10 +141,10 @@ class StateMachine(StateMachineCore):
 
 
     def parse(self, inputs):
-        "Feeds items from the `inputs` iterable into the state machine and yields truish outputs"
+        "Feeds items from the `inputs` iterable into the state machine and yields non-None outputs"
         for i in inputs:
             out = self.input(i)
-            if out:
+            if out is not None:
                 yield out
 #####
 

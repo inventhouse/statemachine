@@ -88,7 +88,7 @@ if __name__ == "__main__":
     if len(sys.argv) >= 2 and sys.argv[1] in ["-h", "--help"]:
         h = """Simple parser for extracting my status from a standup summary form; not likely to be useful to anyone else.
 
-        Usage: statusparser [name]    Extract 'yesterday' and 'today' status for name; defaults to "bholt"
+        Usage: pbpaste | statusparser [name]    Extract 'yesterday' and 'today' status for name; defaults to "bholt"
         """
         print(h)
         sys.exit(0)
