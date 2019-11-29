@@ -17,53 +17,95 @@ import statemachine as sm
 ###  Main  ###
 def main(args, env, stdin):
     epilog = "Statemachine Line EDitor, like `sed` but built with statemachine rules (v0.1)"
-    parser = argparse.ArgumentParser(epilog=epilog)
-    # parser.add_argument(
+    arg_parser = argparse.ArgumentParser(epilog=epilog)
+    # arg_parser.add_argument(
     #     "in_file",
     #     nargs="?",
     #     metavar="FILE",
     #     help="File to parse, defaults to stdin.",
     # )
-    parser.add_argument(
+    arg_parser.add_argument(
         "-s", "--start",
         default="start",
         metavar="STATE",
         help="Start the parser in STATE, defaults to 'start'.",
     )
-    parser.add_argument(
+    arg_parser.add_argument(
         "-a", "--add-rules",
         nargs="+",
+        default=[],
         # action="append",
         metavar="RULE",
         help="Adds a rule to the statemachine.",
     )
-    # parser.add_argument(
+    # arg_parser.add_argument(
     #     "-b", "--buckets",
     #     nargs="+",
     #     type=int,
     #     metavar="X",
     #     help="Buckets to make names for, default is all buckets.",
     # )
-    # parser.add_argument(
+    # arg_parser.add_argument(
     #     "-c", "--check-only",
     #     action="store_true",
     #     help="Just check what bucket the user is in, don't generate names.",
     # )
-    parser.add_argument(
+    arg_parser.add_argument(
         "--print-args",
         action="store_true",
         # help="Print arguments and compiled rules, then exit.",
         help=argparse.SUPPRESS,
     )
-    my_args = parser.parse_args(args[1:])
-    
+    my_args = arg_parser.parse_args(args[1:])
+    rules = parse_rules(my_args.add_rules)
     if my_args.print_args:
-        print(f"* Args:\n\t{my_args}\n")
+        print(f"* Args:\n\t{my_args}\n* Rules:\n\t{rules}")
         return 0
+
+    parser = sm.StateMachine(my_args.start)
+    for r in rules:
+        parser.add(*r)
+
+    for l in parser.parse(stdin):
+        print(l, end='')
 #####
 
 
 ###  Rule Parsing  ###
+def parse_rules(l):
+    rules = []
+    for s in l:
+        (name, test, t_arg, dst, action, a_arg, tag) = split_rule(s)
+        test = lookup(TESTS, test, t_arg)
+        action = lookup(ACTIONS, action, a_arg)
+        rules.append((name, test, dst, action, tag))
+    return rules
+
+
+def split_rule(s):
+    d,s = s[0], s[1:]
+    parts = [ p if len(p) else None for p in s.split(d) ]
+    parts += [None,] * 7
+    return parts[:7]
+
+
+def lookup(d, key, arg):
+    v = d.get(key, key)
+    return v(arg) if callable(v) else v
+
+
+# Tests and actions will be called with arg if callable
+# TODO: these can probably be classes
+TESTS = {
+    "True": lambda _: sm.trueTest,
+    "match": sm.matchTest,
+    None: "",  # None isn't a thing we'll find in the input lines, test for empty string instead
+}
+
+
+ACTIONS = {
+    "print": lambda _: sm.inputAction,
+}
 #####
 
 
