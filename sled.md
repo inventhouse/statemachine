@@ -1,5 +1,7 @@
-Statemachine Line EDitor (or: Sed-Like EDitor)
-==============================================
+Statemachine Line EDitor
+========================
+or: Sed-Like EDitor
+-------------------
 Like `sed` but using consistent statemachine-based rules instead of ad-hoc; maybe with some backwards-compatible(ish) conveniences, though.
 
 `> sled -a :state:test:arg:dst[:action:arg:tag?]`
@@ -14,10 +16,11 @@ To Do
         - string, re.match, re.search, input number gte, trueTest
         - input action, format action
     - make delim escape-able
+    - rules file?  `#!`?
 - run lines through SM
     - stdin or file
 - add extras
-    - print by default vs. "delete" by default
+    - print by default vs. drop by default
     - lenient vs. "strict"
 - fold DSL into main statemachine?
 - add sed-ish versions of some basic things
