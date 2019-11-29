@@ -10,6 +10,7 @@ import re
 
 
 ###  State Machine Core  ###
+# Note: For clarity, we will refer to the edges of a state diagram as "rules" and the _operation_ of those rules as "transitions"
 TransitionInfo = namedtuple("TransitionInfo", ("state", "dst", "count", "result"),)
 TraceInfo = namedtuple("TraceInfo", ("t_info", "test", "action", "tag", "out", "end"))
 
@@ -21,7 +22,7 @@ class StateMachineCore(object):
     """
     def __init__(self, start):
         """Creates a state machine in the start state."""
-        self.transitions = {start:[], None:[],}  # {state: [(test, dst, action, tag), ...], ...}
+        self.rules = {start:[], None:[],}  # {state: [(test, dst, action, tag), ...], ...}
         self.state = start
         self.i_count = 0
 
@@ -31,19 +32,19 @@ class StateMachineCore(object):
 
 
     def add(self, state, test, dst, action=None, tag=None):
-        """Add transition from `state` to `dst` with `test`, and optional `action`, and debugging `tag`.  Transitions will be tested in the order they added."""
-        if state not in self.transitions:
-            self.transitions[state] = []
-        if dst not in self.transitions:
-            self.transitions[dst] = []
-        self.transitions[state].append((test, dst, action, tag))  # REM: auto-tag "global" transitions?
+        """Add rule from `state` to `dst` if `test`, with optional `action`, and debugging `tag`.  Rules will be tested in the order they added."""
+        if state not in self.rules:
+            self.rules[state] = []
+        if dst not in self.rules:
+            self.rules[dst] = []
+        self.rules[state].append((test, dst, action, tag))  # REM: auto-tag "global" rules?
 
 
     def input(self, i):
-        """Tests input `i` against current state's transitions, changes state, and returns the output of the first matching transition's action."""
+        """Tests input `i` against current state's rules, changes state, and returns the output of the first matching rule's action."""
         self.i_count += 1
-        tlist = self.transitions.get(self.state, [])
-        for (test, dst, action, tag) in tlist + self.transitions.get(None, []):  # Transitions starting from None are added to all states
+        rlist = self.rules.get(self.state, [])
+        for (test, dst, action, tag) in rlist + self.rules.get(None, []):  # Rules starting from None are added to all states
             t_info = TransitionInfo(self.state, dst, self.i_count, None)
             result = test(i, t_info) if callable(test) else test == i
             t_info = t_info._replace(result=result)
@@ -65,14 +66,14 @@ class StateMachineCore(object):
 class StateMachine(StateMachineCore):
     """State machine engine that makes minimal, but convenient, assumptions.
 
-    This is a stripped-down [Mealy](https://en.wikipedia.org/wiki/Mealy_machine) (output depends on state and input) state machine engine.  Good for writing parsers, but makes no assumptions about text parsing, and doesn't make any unnecessary assumptions about the states, tests, or actions that make up the transitions that wire up the machines it can run.
+    This is a stripped-down [Mealy](https://en.wikipedia.org/wiki/Mealy_machine) (output depends on state and input) state machine engine.  Good for writing parsers, but makes no assumptions about text parsing, and doesn't have any unnecessary requirements for the states, tests, or actions that form the rules that wire up the machines it can run.
     """
     def __init__(self, start, tracer=True, unrecognized=True):
         """Creates a state machine in the start state with an optional tracer and unrecognized input handler.
 
-        An optional `tracer` gets called after each transition tested with the input and a `TraceInfo`.  By default, this uses `RecentTracer` to collect the last five significant transitions (self-transitions are counted but only the last of them is kept) to be raised by the default `unrecognized` handler.  An integer can be passed to set the trace depth (or unlimited if negative).  This can be set to another callable, such as a `Tracer` instance, for a complete, quite verbose, log of the operation of your state machine; the recent trace will still be collected if the default unrecognized handler is being used.
+        An optional `tracer` gets called after each rule tested with the input and a `TraceInfo`.  By default, this uses `RecentTracer` to collect the last five significant transitions (self-transitions are counted but only the last of them is kept) to be raised by the default `unrecognized` handler.  An integer can be passed to set the trace depth (or unlimited if negative).  This can be set to another callable, such as a `Tracer` instance, for a complete, quite verbose, log of the operation of your state machine; the recent trace will still be collected if the default unrecognized handler is being used.
 
-        If an input does not match any transition the `unrecognized` handler is called with the input, state and input count.  By default this raises a `ValueError` with a short trace of recent transitions.  It can be set to `False` to disable the default tracing and ignore unrecognized input.
+        If an input does not match any rule the `unrecognized` handler is called with the input, state and input count.  By default this raises a `ValueError` with a short trace of recent transitions.  It can be set to `False` to disable the default tracing and ignore unrecognized input.
         """
         super().__init__(start)
 
@@ -99,41 +100,41 @@ class StateMachine(StateMachineCore):
 
 
     def add(self, state, test, dst, action=None, tag=None):
-        """Add transition from `state` to `dst` with `test`, and optional `action`, and debugging `tag`.  Transitions will be tested in the order they added.
+        """Add rule from `state` to `dst` if `test`, with optional `action`, and debugging `tag`.  Rules will be tested in the order they added.
 
-        `state` and `dst` must be hashable; if `state` is `None`, this transition will be implictly added to all states, and evaluated after any explict transitions.  If `dst` is `None`, the machine will remain in the same state (self-transition or the action could directly set a dynamic state).
+        `state` and `dst` must be hashable; if `state` is `None`, this rule will be implictly added to all states, and evaluated after any explict rules.  If `dst` is `None`, the machine will remain in the same state (self-transition) or the action could directly set a dynamic state.
 
-        If `test` is callable, it will be called as described below, otherwise it will be compared against the input (`test == input`)
+        If `test` is callable, it will be called as described for the `input` method below, otherwise it will be compared against the input (`test == input`)
 
-        If `action` is callable, it will be called as described below, otherwise it will be returned when the transition is followed.
+        If `action` is callable, it will be called as described for the `input` method below, otherwise it will be returned when the transition is followed.
         """
         super().add(state, test, dst, action=action, tag=tag)
 
 
-    def build(self, state, *transitions):
-        """Add several transitions to a state.
+    def build(self, state, *rules):
+        """Add several rules to a state.
 
-        Remaining arguments for transitions can be given as any combination of:
+        Remaining arguments for rules can be given as any combination of:
         - *args-compatible tuple like (test, dst, action)
         - **kwargs-compatible dict like {"test": test, "dst": dst, "action": action}
         - or a pair, one of each, like ((test, dst), {"action": action})
         """
-        for t in transitions:
-            if type(t) == dict:
-                self.add(state, **t)
-            elif [ type(i) for i in t ] == [tuple, dict]:
-                args, kwargs = t
+        for r in rules:
+            if type(r) == dict:
+                self.add(state, **r)
+            elif [ type(i) for i in r ] == [tuple, dict]:
+                args, kwargs = r
                 self.add(state, *args, **kwargs)
             else:
-                self.add(state, *t)
+                self.add(state, *r)
 
 
     def input(self, i):
-        """Tests input `i` against current state's transitions, changes state, and returns the output of the first matching transition's action.
+        """Tests input `i` against current state's rules, changes state, and returns the output of the first matching rule's action.
 
-        Transitions are tested in the order they were added to their originating state and the first one with a truish result is followed.  Transitions starting from `None` are implicitly added to all states and evaluated in order after the current state's explict transitions.
+        Rules are tested in the order they were added to their originating state and the first one with a truish result is followed.  Rules starting from `None` are implicitly added to all states and evaluated in order after the current state's explict rules.
 
-        If `test` is callable, it will be called with the input and a `TransitionInfo`; a truish result will cause the machine will go to `dst` and this transition's action to be called.  If `test` is not callable will be compared against the input (`test == input`).
+        If `test` is callable, it will be called with the input and a `TransitionInfo`; a truish result will cause the machine will go to `dst` and this rule's action to be called.  If `test` is not callable will be compared against the input (`test == input`).
 
         If the test result is truish and `action` is callable, it will be called with the input and a `TransitionInfo` and the output will be returned.  Otherwise, the `action` itself will be returned when the transition is followed.
         """
@@ -190,7 +191,7 @@ def inputAction(i, _):
 
 
 ###  Utilities  ###
-def format_transition_table(sm):
+def format_rule_table(sm):
     """TODO: impliment this"""
     pass
 #####
