@@ -20,6 +20,7 @@ To Do
         - string, input action, format action
     - make delim escape-able
     - rules file?  `#!`?
+- help for tests and actions
 - run lines through SM
     - stdin or file
 - add extras
@@ -27,6 +28,8 @@ To Do
     - lenient vs. "strict"
 - fold DSL into main statemachine?
 - add sed-ish versions of some basic things
+- maybe a `-m/--match-and-format` "simple" version that assumes test is `match` and action is `format` and just takes the args
+    - `-e/--sed-expression`, `-m/--match-and-format`, and `-a/--add-rules` would be mutually exclusive
 
 ### Doneyard
 

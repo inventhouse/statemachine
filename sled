@@ -51,6 +51,11 @@ def main(args, env, stdin):
     #     help="Just check what bucket the user is in, don't generate names.",
     # )
     arg_parser.add_argument(
+        "--more-help",
+        action="store_true",
+        help="Print help about the available tests and actions.",
+    )
+    arg_parser.add_argument(
         "--print-args",
         action="store_true",
         # help="Print arguments and compiled rules, then exit.",
@@ -60,6 +65,11 @@ def main(args, env, stdin):
     rules = parse_rules(my_args.add_rules)
     if my_args.print_args:
         print(f"* Args:\n\t{my_args}\n* Rules:\n\t{rules}")
+        return 0
+    if my_args.more_help:
+        test_help = "\n\t".join([ f"{k}:\t{h}" for k,h in TESTS.help() ])
+        action_help = "\n\t".join([ f"{k}:\t{h}" for k,h in ACTIONS.help() ])
+        print(f"Tests:\n\t{test_help}\n\nActions:\n\t{action_help}")
         return 0
 
     parser = sm.StateMachine(my_args.start)
@@ -76,8 +86,8 @@ def parse_rules(l):
     rules = []
     for s in l:
         (name, test, t_arg, dst, action, a_arg, tag) = split_rule(s)
-        test = lookup(TESTS, test, t_arg)
-        action = lookup(ACTIONS, action, a_arg)
+        test = TESTS.lookup(test, t_arg)
+        action = ACTIONS.lookup(action, a_arg)
         rules.append((name, test, dst, action, tag))
     return rules
 
@@ -89,23 +99,39 @@ def split_rule(s):
     return parts[:7]
 
 
-def lookup(d, key, arg):
-    v = d.get(key, key)
-    return v(arg) if callable(v) else v
 
 
 # Tests and actions will be called with arg if callable
 # TODO: these can probably be classes
-TESTS = {
-    "True": lambda _: sm.trueTest,
-    "match": sm.matchTest,
-    None: "",  # None isn't a thing we'll find in the input lines, test for empty string instead
-}
+class VerbMap(object):
+    def __init__(self, d):
+        self.map = d
 
 
-ACTIONS = {
-    "print": lambda _: sm.inputAction,
-}
+    def lookup(self, key, arg):
+        # This is hard to write a docstring for, which probably means it's a bad idea...
+        (v, _) = self.map.get(key, (key, None))
+        return v(arg) if callable(v) else v
+
+
+    def help(self):
+        keys = sorted([ k for k in self.map.keys() if k ])
+        return [ (k, self.map[k][1]) for k in keys if self.map[k][1] ]
+
+
+TESTS = VerbMap({
+    "True": (lambda _: sm.trueTest, "(T) Always True"),
+    "T": (lambda _: sm.trueTest, None),
+    "Match": (sm.matchTest, "(M) Match a regex pattern"),
+    "M": (sm.matchTest, None),
+    None: ("", None),  # None isn't a thing we'll find in the input lines, test for empty string instead
+})
+
+
+ACTIONS = VerbMap({
+    "Print": (lambda _: sm.inputAction, "(P) Return the input"),
+    "P": (lambda _: sm.inputAction, None),
+})
 #####
 
 
