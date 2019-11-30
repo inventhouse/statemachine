@@ -15,12 +15,13 @@ Example - print lines from @bholt to the next @-line, suppress others:
 To Do
 -----
 - parse instructions into rules
-    - work out tests and actions to offer
-        - string, re.match, re.search, input number gte, trueTest
-        - string, input action, format action
+    - DONE: work out tests and actions to offer
+        - DONE: string, re.match, input number gte, trueTest
+        - DONE: string, input action, format action, None action
+    - DONE: named rules
     - make delim escape-able
     - rules file?  `#!`?
-- DONEish: help for tests and actions - kinda bolted-on
+- DONE: help for tests and actions - kinda bolted-on
 - DONE: run lines through SM
     - stdin or file
 - add extras

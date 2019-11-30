@@ -31,12 +31,18 @@ def main(args, env, stdin):
         help="Start the parser in STATE, defaults to 'start'.",
     )
     arg_parser.add_argument(
+        "-r", "--named-rules",
+        nargs="+",
+        default=[],
+        metavar="RULE",
+        help="Define named rules to be added to states with -a/--add-rules.",
+    )
+    arg_parser.add_argument(
         "-a", "--add-rules",
         nargs="+",
         default=[],
-        # action="append",
         metavar="RULE",
-        help="Adds a rule to the statemachine.",
+        help="Add rules to the statemachine.",
     )
     arg_parser.add_argument(
         "--more-help",
@@ -50,9 +56,10 @@ def main(args, env, stdin):
         help=argparse.SUPPRESS,
     )
     my_args = arg_parser.parse_args(args[1:])
-    rules = parse_rules(my_args.add_rules)
+    named_rules = { n: r for n,*r in parse_rules(my_args.named_rules) }
+    rules = parse_rules(my_args.add_rules, aliases=named_rules)
     if my_args.print_args:
-        print(f"* Args:\n\t{my_args}\n* Rules:\n\t{rules}")
+        print(f"* Args:\n\t{my_args}\n* Named Rules:\n\t{named_rules}\n* Rules:\n\t{rules}")
         return 0
     if my_args.more_help:
         print(f"{helper(Tests)}\n\n{helper(Actions)}")
@@ -68,10 +75,24 @@ def main(args, env, stdin):
 
 
 ###  Rule Parsing  ###
-def parse_rules(l):
+def parse_rules(l, aliases=None):
     rules = []
     for s in l:
-        (name, test, t_arg, dst, action, a_arg, tag) = split_rule(s)
+        parts = split_rule(s)
+
+        if aliases and len(parts) <= 3:
+            # Very short rule may be an alias reference
+            parts += [None,] * 3
+            if parts[1] in aliases:
+                r = [parts[0], *aliases[parts[1]]]
+                if parts[2]:
+                    # Override the tag if one was specified
+                    r[-1] = parts[2]
+                rules.append(r)
+                continue
+
+        parts += [None,] * 7
+        (name, test, t_arg, dst, action, a_arg, tag) = parts[:7]
 
         if not test:
             test = "_default"
@@ -92,8 +113,7 @@ def parse_rules(l):
 def split_rule(s):
     d,s = s[0], s[1:]
     parts = [ p if len(p) else None for p in s.split(d) ]
-    parts += [None,] * 7
-    return parts[:7]
+    return parts
 
 
 class Tests:
