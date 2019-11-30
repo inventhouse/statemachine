@@ -5,7 +5,7 @@
 Statemachine Line EDitor
 or: Sed-Like EDitor
 
-Like `sed` but using consistent statemachine-based rules instead of ad-hoc; maybe with some backwards-compatible(ish) conveniences, though
+Like `sed` but using consistent statemachine-based rules instead of ad-hoc commands; maybe with some backwards-compatible(ish) conveniences, though (or maybe not)
 """
 import argparse
 import re
@@ -38,18 +38,6 @@ def main(args, env, stdin):
         metavar="RULE",
         help="Adds a rule to the statemachine.",
     )
-    # arg_parser.add_argument(
-    #     "-b", "--buckets",
-    #     nargs="+",
-    #     type=int,
-    #     metavar="X",
-    #     help="Buckets to make names for, default is all buckets.",
-    # )
-    # arg_parser.add_argument(
-    #     "-c", "--check-only",
-    #     action="store_true",
-    #     help="Just check what bucket the user is in, don't generate names.",
-    # )
     arg_parser.add_argument(
         "--more-help",
         action="store_true",
@@ -67,14 +55,14 @@ def main(args, env, stdin):
         print(f"* Args:\n\t{my_args}\n* Rules:\n\t{rules}")
         return 0
     if my_args.more_help:
-        print(f"{TESTS.help()}\n\n{ACTIONS.help()}")
+        print(f"{helper(Tests)}\n\n{helper(Actions)}")
         return 0
 
     parser = sm.StateMachine(my_args.start)
     for r in rules:
         parser.add(*r)
 
-    for line in parser.parse(l.rstrip("\n") for l in stdin):
+    for line in parser.parse( l.rstrip("\n") for l in stdin ):
         print(line)
 #####
 
@@ -84,8 +72,19 @@ def parse_rules(l):
     rules = []
     for s in l:
         (name, test, t_arg, dst, action, a_arg, tag) = split_rule(s)
-        test = TESTS.lookup(test, t_arg)
-        action = ACTIONS.lookup(action, a_arg)
+
+        if not test:
+            test = "_default"
+        if test not in Tests.__dict__:
+            raise KeyError(f"no '{test}' in Tests, run with --more-help for full list")
+        test = Tests.__dict__[test](t_arg)
+
+        if not action:
+            action = "_default"
+        if action not in Actions.__dict__:
+            raise KeyError(f"no '{action}' in Actions, run with --more-help for full list")
+        action = Actions.__dict__[action](a_arg)
+
         rules.append((name, test, dst, action, tag))
     return rules
 
@@ -97,43 +96,69 @@ def split_rule(s):
     return parts[:7]
 
 
-# Tests and actions will be called with arg; that, in turn, may produce a callable test or action for the underlying statemachine
-class VerbMap(object):
-    def __init__(self, s, d):
-        self.name = s
-        self.map = d  # {"verb": (callable(arg), "help"),...}
+class Tests:
+    "Tests"
+    def T(_):
+        "always True"
+        return sm.trueTest
+
+    def L(s):
+        "Literal string"
+        # None isn't a thing we'll find in the input lines, test for empty string instead
+        return s if s else ""
+
+    def M(s):
+        "Match a regex pattern"
+        return sm.matchTest(s)
+
+    def CEQ(n):
+        "input Count EQuals"
+        n = int(n)
+        return lambda i, t: t.count == n
+
+    def CGT(n):
+        "input Count Greater-Than"
+        n = int(n)
+        return lambda i, t: t.count > n
+
+    def CLT(n):
+        "input Count Less-Than"
+        n = int(n)
+        return lambda i, t: t.count < n
+
+    def _default(s):
+        "default test is 'L'"
+        return Tests.L(s)
 
 
-    def lookup(self, key, arg):
-        if key not in self.map:
-            raise KeyError(f"no '{key}' in {self.name}, run with --more-help for full list")
-        return self.map[key][0](arg)
+class Actions:
+    "Actions"
+    def F(s):
+        "Formatted output; input will be passed as 'i', test result will be 'r'"
+        return lambda i, t: s.format(i=i, r=t.result)
+
+    def I(_):
+        "return the Input"
+        return sm.inputAction
+
+    def L(s):
+        "Literal string"
+        # Return empty string instead of None
+        return s if s else ""
+
+    def _default(s):
+        "default action returns None"
+        return None
 
 
-    def help(self):
-        keys = sorted([ k for k in self.map.keys() if k ]) + [None,]
-        helps = [ (k, self.map[k][1]) for k in keys if self.map[k][1] ]
-        help_string = "\n\t".join([ f"{k}:\t{h}" for k,h in helps ])
-        return f"{self.name}:\n\t{help_string}"
-
-
-TESTS = VerbMap("Tests", {
-    "T": ((lambda _: sm.trueTest), "always True"),
-    "M": (sm.matchTest, "Match a regex pattern"),
-    "NLT": ((lambda n: lambda i, t: t.count < int(n)), "input Number Less-Than"),
-    "NGT": ((lambda n: lambda i, t: t.count > int(n)), "input Number Greater-Than"),
-    "NEQ": ((lambda n: lambda i, t: t.count == int(n)), "input Number EQuals"),
-    "L": ((lambda s: s if s else ""), "Literal string"),  # None isn't a thing we'll find in the input lines, test for empty string instead
-    None: ((lambda s: s if s else ""), "default test is 'L'"),
-})
-
-
-ACTIONS = VerbMap("Actions", {
-    "F": ((lambda p: lambda i, t: p.format(i=i, r=t.result)), "Formatted output; input will be 'i', test result will be 'r'"),
-    "I": ((lambda _: sm.inputAction), "return the Input"),
-    "L": ((lambda s: s if s else ""), "Literal string"),  # Return empty string instead of None
-    None: ((lambda _: None), "default action returns None"),
-})
+def helper(cls):
+    keys = sorted([ k for k in cls.__dict__.keys() if not k.startswith("_") ])
+    helps = [ (k, cls.__dict__[k].__doc__) for k in keys if cls.__dict__[k].__doc__ ]
+    default_key = "_default"
+    if default_key in cls.__dict__ and cls.__dict__[default_key].__doc__:
+        helps.append(("None", cls.__dict__[default_key].__doc__))
+    help_string = "\n\t".join([ f"{k}:\t{h}" for k,h in helps ])
+    return f"{cls.__doc__}:\n\t{help_string}"
 #####
 
 
