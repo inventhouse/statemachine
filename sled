@@ -5,10 +5,11 @@
 Statemachine Line EDitor
 or: Sed-Like EDitor
 
-Like `sed` but using consistent statemachine-based rules instead of ad-hoc commands; maybe with some backwards-compatible(ish) conveniences, though (or maybe not)
+Like `sed` but using consistent statemachine-based rules instead of ad-hoc commands.
 """
 import argparse
 import re
+import textwrap
 
 import statemachine as sm
 #####
@@ -16,8 +17,29 @@ import statemachine as sm
 
 ###  Main  ###
 def main(args, env, stdin):
-    epilog = "Statemachine Line EDitor, like `sed` but built with statemachine rules (v0.1)"
-    arg_parser = argparse.ArgumentParser(epilog=epilog)
+    description = "Statemachine Line EDitor, like `sed` but built with statemachine rules (v0.1)"
+    epilog = textwrap.dedent("""\
+    Rules can be created with -r/--named-rules and start with a delimiter character of your choice follwed by 7 fields:
+
+        :name:test:arg:dst:action:arg:tag
+
+    Rules are added to states in the underlying statemachine with -a/--add-rules, and may be either named or anonymous:
+
+        :state:name:tag
+        :state:test:arg:dst:action:arg:tag
+
+    Unnecessary fields may be omitted from the end in all cases, and 'test' and 'action' commands are not case-sensitive.  Rules with no 'state' specified are implicitly added to all states, but evaluated after any explicit rules; rules with no 'dst' remain in the same state ("self-transition")
+
+    More documentation and examples in sled.md:
+    https://github.com/inventhouse/statemachine/blob/master/sled.md
+    """)
+    # epilog = "\n".join([ textwrap.fill(s, width=75) for s in epilog.splitlines() ])  # Wrap each paragraph separately
+
+    arg_parser = argparse.ArgumentParser(
+        description=wrapper(description, width=75),
+        epilog=wrapper(epilog, width=75),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
     # arg_parser.add_argument(
     #     "in_file",
     #     nargs="?",
@@ -35,7 +57,7 @@ def main(args, env, stdin):
         nargs="+",
         default=[],
         metavar="RULE",
-        help="Define named rules to be added to states with -a/--add-rules.",
+        help="Define named rules to be added to states below",
     )
     arg_parser.add_argument(
         "-a", "--add-rules",
@@ -96,12 +118,14 @@ def parse_rules(l, aliases=None):
 
         if not test:
             test = "_default"
+        test = test.lower()
         if test not in Tests.__dict__:
             raise KeyError(f"no '{test}' in Tests, run with --more-help for full list")
         test = Tests.__dict__[test](t_arg)
 
         if not action:
             action = "_default"
+        action = action.lower()
         if action not in Actions.__dict__:
             raise KeyError(f"no '{action}' in Actions, run with --more-help for full list")
         action = Actions.__dict__[action](a_arg)
@@ -118,30 +142,30 @@ def split_rule(s):
 
 class Tests:
     "Tests"
-    def T(_):
+    def t(_):
         "always True"
         return sm.trueTest
 
-    def L(s):
+    def l(s):
         "Literal string"
         # None isn't a thing we'll find in the input lines, test for empty string instead
         return s if s else ""
 
-    def M(s):
+    def m(s):
         "Match a regex pattern"
         return sm.matchTest(s)
 
-    def CEQ(n):
+    def ceq(n):
         "input Count EQuals"
         n = int(n)
         return lambda i, t: t.count == n
 
-    def CGT(n):
+    def cgt(n):
         "input Count Greater-Than"
         n = int(n)
         return lambda i, t: t.count > n
 
-    def CLT(n):
+    def clt(n):
         "input Count Less-Than"
         n = int(n)
         return lambda i, t: t.count < n
@@ -153,15 +177,15 @@ class Tests:
 
 class Actions:
     "Actions"
-    def F(s):
+    def f(s):
         "Formatted output; input will be passed as 'i', test result will be 'r'"
         return lambda i, t: s.format(i=i, r=t.result)
 
-    def I(_):
+    def i(_):
         "return the Input"
         return sm.inputAction
 
-    def L(s):
+    def l(s):
         "Literal string"
         # Return empty string instead of None
         return s if s else ""
@@ -169,6 +193,14 @@ class Actions:
     def _default(s):
         "default action returns None"
         return None
+#####
+
+
+###  Helpers  ###
+def wrapper(text, **kwargs):
+    "Nothing worse than a bad wrap"
+    # Wrap each paragraph separately, then put them back together
+    return "\n".join([ textwrap.fill(s, **kwargs) for s in text.splitlines() ])
 
 
 def helper(cls):
