@@ -67,17 +67,15 @@ def main(args, env, stdin):
         print(f"* Args:\n\t{my_args}\n* Rules:\n\t{rules}")
         return 0
     if my_args.more_help:
-        test_help = "\n\t".join([ f"{k}:\t{h}" for k,h in TESTS.help() ])
-        action_help = "\n\t".join([ f"{k}:\t{h}" for k,h in ACTIONS.help() ])
-        print(f"Tests:\n\t{test_help}\n\nActions:\n\t{action_help}")
+        print(f"{TESTS.help()}\n\n{ACTIONS.help()}")
         return 0
 
     parser = sm.StateMachine(my_args.start)
     for r in rules:
         parser.add(*r)
 
-    for l in parser.parse(stdin):
-        print(l, end='')
+    for line in parser.parse(l.rstrip("\n") for l in stdin):
+        print(line)
 #####
 
 
@@ -99,38 +97,42 @@ def split_rule(s):
     return parts[:7]
 
 
-
-
-# Tests and actions will be called with arg if callable
-# TODO: these can probably be classes
+# Tests and actions will be called with arg; that, in turn, may produce a callable test or action for the underlying statemachine
 class VerbMap(object):
-    def __init__(self, d):
-        self.map = d
+    def __init__(self, s, d):
+        self.name = s
+        self.map = d  # {"verb": (callable(arg), "help"),...}
 
 
     def lookup(self, key, arg):
-        # This is hard to write a docstring for, which probably means it's a bad idea...
-        (v, _) = self.map.get(key, (key, None))
-        return v(arg) if callable(v) else v
+        if key not in self.map:
+            raise KeyError(f"no '{key}' in {self.name}, run with --more-help for full list")
+        return self.map[key][0](arg)
 
 
     def help(self):
-        keys = sorted([ k for k in self.map.keys() if k ])
-        return [ (k, self.map[k][1]) for k in keys if self.map[k][1] ]
+        keys = sorted([ k for k in self.map.keys() if k ]) + [None,]
+        helps = [ (k, self.map[k][1]) for k in keys if self.map[k][1] ]
+        help_string = "\n\t".join([ f"{k}:\t{h}" for k,h in helps ])
+        return f"{self.name}:\n\t{help_string}"
 
 
-TESTS = VerbMap({
-    "True": (lambda _: sm.trueTest, "(T) Always True"),
-    "T": (lambda _: sm.trueTest, None),
-    "Match": (sm.matchTest, "(M) Match a regex pattern"),
-    "M": (sm.matchTest, None),
-    None: ("", None),  # None isn't a thing we'll find in the input lines, test for empty string instead
+TESTS = VerbMap("Tests", {
+    "T": ((lambda _: sm.trueTest), "always True"),
+    "M": (sm.matchTest, "Match a regex pattern"),
+    "NLT": ((lambda n: lambda i, t: t.count < int(n)), "input Number Less-Than"),
+    "NGT": ((lambda n: lambda i, t: t.count > int(n)), "input Number Greater-Than"),
+    "NEQ": ((lambda n: lambda i, t: t.count == int(n)), "input Number EQuals"),
+    "L": ((lambda s: s if s else ""), "Literal string"),  # None isn't a thing we'll find in the input lines, test for empty string instead
+    None: ((lambda s: s if s else ""), "default test is 'L'"),
 })
 
 
-ACTIONS = VerbMap({
-    "Print": (lambda _: sm.inputAction, "(P) Return the input"),
-    "P": (lambda _: sm.inputAction, None),
+ACTIONS = VerbMap("Actions", {
+    "F": ((lambda p: lambda i, t: p.format(i=i, r=t.result)), "Formatted output; input will be 'i', test result will be 'r'"),
+    "I": ((lambda _: sm.inputAction), "return the Input"),
+    "L": ((lambda s: s if s else ""), "Literal string"),  # Return empty string instead of None
+    None: ((lambda _: None), "default action returns None"),
 })
 #####
 

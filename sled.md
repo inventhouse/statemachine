@@ -20,13 +20,13 @@ To Do
         - string, input action, format action
     - make delim escape-able
     - rules file?  `#!`?
-- help for tests and actions
-- run lines through SM
+- DONEish: help for tests and actions - kinda bolted-on
+- DONE: run lines through SM
     - stdin or file
 - add extras
-    - print by default vs. drop by default
-    - lenient vs. "strict"
-- fold DSL into main statemachine?
+    - PUNT: print by default vs. drop by default
+    - PUNT: lenient vs. "strict"
+- NO: fold DSL into main statemachine? - unless I figure a better way to do tests and actions than hardcoded maps, just no.
 - add sed-ish versions of some basic things
 - maybe a `-m/--match-and-format` "simple" version that assumes test is `match` and action is `format` and just takes the args
     - `-e/--sed-expression`, `-m/--match-and-format`, and `-a/--add-rules` would be mutually exclusive
