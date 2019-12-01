@@ -5,7 +5,7 @@
 Statemachine Line EDitor
 or: Sed-Like EDitor
 
-Like `sed` but using consistent statemachine-based rules instead of ad-hoc commands.
+Like `sed` but using statemachine-based rules instead of imperative commands.
 """
 import argparse
 import re
@@ -17,7 +17,7 @@ import statemachine as sm
 
 ###  Main  ###
 def main(args, env, stdin):
-    description = "Statemachine Line EDitor, like `sed` but built with statemachine rules (v0.1)"
+    description = "Statemachine Line EDitor, like `sed` but built with statemachine rules (v0.9)"
     epilog = textwrap.dedent("""\
     Rules can be created with -r/--named-rules and start with a delimiter character of our choice follwed by 7 fields:
 
