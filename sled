@@ -162,17 +162,17 @@ def parse_rules(l, aliases=None):
 
         if not test:
             test = "_default"
-        test = test.lower()
-        if test not in Tests.__dict__:
+        l_test = test.lower()
+        if l_test not in Tests.__dict__:
             raise KeyError(f"no '{test}' in Tests, run with --more-help for full list")
-        test = Tests.__dict__[test](t_arg)
+        test = Tests.__dict__[l_test](t_arg)
 
         if not action:
             action = "_default"
-        action = action.lower()
-        if action not in Actions.__dict__:
+        l_action = action.lower()
+        if l_action not in Actions.__dict__:
             raise KeyError(f"no '{action}' in Actions, run with --more-help for full list")
-        action = Actions.__dict__[action](a_arg)
+        action = Actions.__dict__[l_action](a_arg)
 
         rules.append((name, test, dst, action, tag))
     return rules
@@ -188,67 +188,67 @@ def split_rule(s):
 class Tests:
     "Tests"
     def t(_):
-        "always True"
+        ":T::\talways True"
         return sm.trueTest
 
     def l(s):
-        "Literal string"
+        ":L:s:\tLiteral string, no string matches empty line"
         # None isn't a thing we'll find in the input lines, test for empty string instead
         return s if s else ""
 
     def m(s):
-        "Match a regex pattern"
+        ":M:p:\tMatch a regex pattern"
         return sm.matchTest(s)
 
     def s(s):
-        "Search for a regex pattern"
+        ":S:p:\tSearch for a regex pattern"
         r = re.compile(s)
         def c(i, _):
             return r.search(i)
         return c
 
     def ceq(n):
-        "input Count EQuals"
+        ":CEQ:n:\tinput Count EQuals"
         n = int(n)
         return lambda i, t: t.count == n
 
     def cgt(n):
-        "input Count Greater-Than"
+        ":CGT:n:\tinput Count Greater-Than"
         n = int(n)
         return lambda i, t: t.count > n
 
     def clt(n):
-        "input Count Less-Than"
+        ":CLT:n:\tinput Count Less-Than"
         n = int(n)
         return lambda i, t: t.count < n
 
     def _default(s):
-        "default test is 'L'"
+        "::s:\tdefault test is 'L'"
         return Tests.L(s)
 
 
 class Actions:
     "Actions"
     def f(s):
-        "Formatted output; input will be passed as 'i', test result will be 'r'"
+        ":F:s:\tFormatted output; input will be passed as 'i', test result will be 'r'"
         return lambda i, t: s.format(i=i, r=t.result)
 
     def i(_):
-        "return the Input"
+        ":I::\treturn the Input"
         return sm.inputAction
 
     def l(s):
-        "Literal string"
+        ":L:s:\tLiteral string"
         # Return empty string instead of None
         return s if s else ""
 
     def s(s):
-        "Sub all occurrences of the test pattern with a replacement"
+        ":S:r:\tSub all occurrences of the test pattern with a replacement"
         # TODO: assert the result is an re.match
         return lambda i, t: t.result.re.sub(s, i)
 
     def _default(s):
-        "default action returns None"
+        ":::\tdefault action returns no output (drops input)"
         return None
 #####
 
@@ -267,7 +267,8 @@ def helper(cls):
     default_key = "_default"
     if default_key in cls.__dict__ and cls.__dict__[default_key].__doc__:
         helps.append(("None", cls.__dict__[default_key].__doc__))
-    help_string = "\n\t".join([ f"{k}:\t{h}" for k,h in helps ])
+    # help_string = "\n\t".join([ f"{k}:\t{h}" for k,h in helps ])
+    help_string = "\n\t".join([ f"{h}" for _,h in helps ])
     return f"{cls.__doc__}:\n\t{help_string}"
 #####
 
