@@ -93,8 +93,6 @@ def main(args, env, stdin):
 
     named_rules = { n: r for n,*r in parse_rules(my_args.named_rules) }
     rules = parse_rules(my_args.add_rules, aliases=named_rules)
-    # read rules file, and gross parse stripping #-style comments and create named list and rules list
-    # want specified rules to override file rules, thus parse those, parse file named rules but update with named_rules, then parse file rules and append to command rules
 
     if my_args.print_args:
         print(f"* Args:\n\t{my_args}\n* Named Rules:\n\t{named_rules}\n* Rules:\n\t{rules}")
