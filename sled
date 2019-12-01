@@ -75,8 +75,8 @@ def main(args, env, stdin):
         nargs="?",
         default=None,
         const="T> ",
-        metavar="PREFIX",
-        help="Add a verbose trace to the statemachine; trace lines will start with PREFIX, by default 'T> '.",
+        metavar="N|PREFIX",
+        help="An integer will set the default tracing depth, negative means unlimited.  Otherwise, add a verbose trace to the statemachine; trace lines will start with PREFIX, by default 'T> '.",
     )
     arg_parser.add_argument(
         "--more-help",
@@ -105,8 +105,12 @@ def main(args, env, stdin):
 
     tracer = True  # Use the built-in default tracing
     if my_args.trace:
-        # Add additional verbose tracing
-        tracer = sm.Tracer(printer=lambda s: print(f"{my_args.trace}{s}"))
+        try:
+            # If int, set trace depth
+            tracer = int(my_args.trace)
+        except ValueError:
+            # Add additional verbose tracing
+            tracer = sm.Tracer(printer=lambda s: print(f"{my_args.trace}{s}"))
     parser = sm.StateMachine(my_args.start, tracer=tracer)
     for r in rules:
         parser.add(*r)
