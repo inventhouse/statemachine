@@ -19,7 +19,7 @@ import statemachine as sm
 def main(args, env, stdin):
     description = "Statemachine Line EDitor, like `sed` but built with statemachine rules (v0.1)"
     epilog = textwrap.dedent("""\
-    Rules can be created with -r/--named-rules and start with a delimiter character of your choice follwed by 7 fields:
+    Rules can be created with -r/--named-rules and start with a delimiter character of our choice follwed by 7 fields:
 
         :name:test:arg:dst:action:arg:tag
 
@@ -65,6 +65,19 @@ def main(args, env, stdin):
         metavar="RULE",
         help="Add rules to the statemachine.",
     )
+    # arg_parser.add_argument(
+    #     "-f", "--rules-file",
+    #     metavar="FILE",
+    #     help="A file of rules for the statemachine.",
+    # )
+    arg_parser.add_argument(
+        "-t", "--trace",
+        nargs="?",
+        default=None,
+        const="T> ",
+        metavar="PREFIX",
+        help="Add a verbose trace to the statemachine; trace lines will start with PREFIX, by default 'T> '.",
+    )
     arg_parser.add_argument(
         "--more-help",
         action="store_true",
@@ -77,8 +90,12 @@ def main(args, env, stdin):
         help=argparse.SUPPRESS,
     )
     my_args = arg_parser.parse_args(args[1:])
+
     named_rules = { n: r for n,*r in parse_rules(my_args.named_rules) }
     rules = parse_rules(my_args.add_rules, aliases=named_rules)
+    # read rules file, and gross parse stripping #-style comments and create named list and rules list
+    # want specified rules to override file rules, thus parse those, parse file named rules but update with named_rules, then parse file rules and append to command rules
+
     if my_args.print_args:
         print(f"* Args:\n\t{my_args}\n* Named Rules:\n\t{named_rules}\n* Rules:\n\t{rules}")
         return 0
@@ -86,7 +103,11 @@ def main(args, env, stdin):
         print(f"{helper(Tests)}\n\n{helper(Actions)}")
         return 0
 
-    parser = sm.StateMachine(my_args.start)
+    tracer = True  # Use the built-in default tracing
+    if my_args.trace:
+        # Add additional verbose tracing
+        tracer = sm.Tracer(printer=lambda s: print(f"{my_args.trace}{s}"))
+    parser = sm.StateMachine(my_args.start, tracer=tracer)
     for r in rules:
         parser.add(*r)
 
@@ -110,6 +131,9 @@ def parse_rules(l, aliases=None):
                 if parts[2]:
                     # Override the tag if one was specified
                     r[-1] = parts[2]
+                elif not r[-1]:
+                    # Auto-tag with rule name if none was specified
+                    r[-1] = parts[1]
                 rules.append(r)
                 continue
 
