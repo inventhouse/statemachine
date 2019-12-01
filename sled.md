@@ -6,11 +6,11 @@ A bit like `sed` but uses statemachine-based rules to create line-based filters 
 
 Introduction
 ------------
-`sled` is a small front-end on a general-purpose engine, `statemachine`; it defines just a few simple tests and actions for filtering and transforming lines of text, but if we need more, we can always move up to writing our parser in Python with the full power and flexibility of `statemachine`.
+`sled` is a front-end on a general-purpose engine, `statemachine`; it defines just a few simple tests and actions for filtering and transforming lines of text, but if we need more, we can always move up to Python with the full power and flexibility of `statemachine`.
 
 Our parsers will be defined by rules that start from a state, and based on a test, move to a destination state ("dst") and may perform an action; rules are also allowed to have a "tag" to aid in tracing and debugging.
 
-Rules with no starting state will be added to all states, but evaluated after all explict rules; rules with no "dst" remain in the same state ("self-transition")
+Rules with no starting state will be added to all states, but are evaluated after all explict rules; rules with no "dst" remain in the same state ("self-transition").
 
 If an input does not match any rule for the current state, an exception is raised with a short trace of recent transitions; the depth of this trace can be set or additional tracing can be enabled with `-t/--trace`.
 
@@ -27,7 +27,7 @@ For convenience, unnecessary fields may be omitted from the end in all cases, 't
 
 A detailed example
 ------------------
-This example will use the `status.txt` file, a sanitized version of the output from a team status chatbot.
+This example will use the `status.txt` file, a sanitized version of the output from a team status chatbot.  Throughout the example, we'll use the `:` delimiter as a convention, but each rule can be defined with _any_ character that doesn't otherwise appear in the rule.
 
 ### Pass lines between delimiters
 
@@ -98,48 +98,92 @@ Note the very last line above has no prefix, it is the parser's normal output.
 
 ### Unrecognized input
 
-_(( write this ))_
+Perhaps we just want the first set of `@bholt` lines so we define the `AtOther` rule to take the parser to an `end` state, like this:
 
-`> sled -a :state:test:arg:dst[:action:arg:tag?]`
-- first char is delim, can be anything
-- that's a lot of fields, can we make some optional? combine the verbs and their args somehow?
-- ability to create named rules somehow? -r :name:... then -a :state:rule[:tag?]
+    `:AtOther:M:@:end`
 
-Example - print lines from @bholt to the next @-line, suppress others:
-`cat status.txt | ./sled -a "::match:@bholt:p:print::" ":p:match:@:start" ":p:True:::print" "::True:::"`
+Uh-oh!  We didn't add any rules to the `end` state, so the parser doesn't know what to do with input and throws a `ValueError`, _but_ after the regular Python trace, it prints an abbreviated statemachine trace:
+
+```
+Traceback (most recent call last):
+  File "./sled", line 260, in <module>
+    xit = main(sys.argv, os.environ, sys.stdin)
+  File "./sled", line 116, in main
+    for line in parser.parse( l.rstrip("\n") for l in stdin ):
+  File "/Users/bjh/inventhub/statemachine/statemachine.py", line 147, in parse
+    out = self.input(i)
+  File "/Users/bjh/inventhub/statemachine/statemachine.py", line 141, in input
+    return super().input(i)
+  File "/Users/bjh/inventhub/statemachine/statemachine.py", line 61, in input
+    return self.unrecognized(i, self.state, self.i_count)
+  File "/Users/bjh/inventhub/statemachine/statemachine.py", line 269, in throw
+    raise ValueError(msg)
+ValueError: Unrecognized input
+StateMachine Traceback (most recent transition last):
+  1: 1. What did you do yesterday?
+      (2 tested) [DropAll] True <-- (start, <function trueTest at 0x10ebaaf28>, None, None)
+          start --> start
+          ==> 'None'
+  2: @bholt
+      (1 tested) [AtBholt] <re.Match object; span=(0, 6), match='@bholt'> <-- (start, <function matchTest.<locals>.c at 0x10ebb39d8>, <function inputAction at 0x10ebb2620>, bholt)
+          start --> bholt
+          ==> '@bholt'
+  ...(Looped 4 times)
+  6: multiline status
+      (2 tested) [PassAll] True <-- (bholt, <function trueTest at 0x10ebaaf28>, <function inputAction at 0x10ebb2620>, None)
+          bholt --> bholt
+          ==> 'multiline status'
+  7: @def
+      (1 tested) [AtOther] <re.Match object; span=(0, 1), match='@'> <-- (bholt, <function matchTest.<locals>.c at 0x10ebb3ae8>, None, end)
+          bholt --> end
+          ==> 'None'
+ValueError: 'end' did not recognize 8: 'debugged things'
+```
+
+This shows us the state and which input it did not recognize and a bit about how it got there.  The depth of this trace is 5 by default, but can be adjusted by passing an integer to `-t/--trace`.
+
+For convenience, `-d/--drop-all` and `-p/--pass-all` can add a catch-all rule for us.
+
 
 To Do
 -----
-- parse instructions into rules
-    - DONE: work out tests and actions to offer
-        - DONE: string, re.match, input number gte, trueTest
-        - DONE: string, input action, format action, None action
-        - Error action?  fire the unrecognized handler deliberately
-            - would need a reference to the sm, not sure how to do that right now
-        - Search test
-        - Replace action that does a full replace-all-occurences
-    - DONE: named rules
-        - DONE: auto-tag with name if no tag is specified
-    - PUNT: make delim escape-able
-    - rules file?  `#!`?
-        - read rules file, and gross parse stripping #-style comments and create named list and rules list
-        - command rules should override file rules
-            - thus parse those, parse file named rules but update with named_rules, then parse file rules and append to command rules before adding
-- DONE: help for tests and actions - kinda bolted-on
+- rules file?  `#!`?
+    - read rules file, and gross parse stripping #-style comments and create named list and rules list
+    - command rules should override file rules
+        - thus parse those, parse file named rules but update with named_rules, then parse file rules and append to command rules before adding
 
-- DONE: run lines through SM
-    - stdin or file
-- add extras
-    - `-p/--pass-all`, `-d/--drop-all` to add pass/drop-by-default rule
-    - PUNT: lenient vs. "strict"
-    - DONE: Full trace with prefix flag
+- input file(s) instead of stdin
+
+- Error action?  fire the unrecognized handler deliberately
+    - would need a reference to the sm, not sure how to do that right now
+
 - NO: fold DSL into main statemachine? - unless I figure a better way to do tests and actions than hardcoded maps, just no.
+    - maybe hoist some of the tests or actions, though
 
-- add sed-ish versions of some basic things
+- maybe add sed-ish versions of some basic things
 - maybe a `-m/--match-and-format` "simple" version that assumes test is `match` and action is `format` and just takes the args
     - `-e/--sed-expression`, `-m/--match-and-format`, and `-a/--add-rules` would be mutually exclusive
 
 ### Doneyard
+
+- DONE: parse instructions into rules
+    - DONE: work out tests and actions to offer
+        - DONE: string, re.match, input number gte, trueTest
+        - DONE: string, input action, format action, None action
+        - DONE: Search test
+        - DONE: Sub action that does a full replace-all-occurences
+    - DONE: named rules
+        - DONE: auto-tag with name if no tag is specified
+    - PUNT: make delim escape-able
+
+- DONE: run lines through SM
+
+- DONE: help for tests and actions - kinda bolted-on
+
+- DONE: add extras
+    - DONE: `-p/--pass-all`, `-d/--drop-all` to add pass/drop-by-default rule
+    - PUNT: lenient vs. "strict"
+    - DONE: Full trace with prefix flag
 
 
 ---

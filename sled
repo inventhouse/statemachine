@@ -71,6 +71,22 @@ def main(args, env, stdin):
     #     help="A file of rules for the statemachine.",
     # )
     arg_parser.add_argument(
+        "-d", "--drop-all",
+        dest="default_rule",
+        action="store_const",
+        const=(None, sm.trueTest, None, None, "DropAll"),
+        default=None,
+        help="Add a final DropAll rule to drop any input not handled."
+    )
+    arg_parser.add_argument(
+        "-p", "--pass-all",
+        dest="default_rule",
+        action="store_const",
+        const=(None, sm.trueTest, None, sm.inputAction, "PassAll"),
+        default=None,
+        help="Add a final PassAll rule to pass any input not handled."
+    )
+    arg_parser.add_argument(
         "-t", "--trace",
         nargs="?",
         default=None,
@@ -93,6 +109,8 @@ def main(args, env, stdin):
 
     named_rules = { n: r for n,*r in parse_rules(my_args.named_rules) }
     rules = parse_rules(my_args.add_rules, aliases=named_rules)
+    if my_args.default_rule:
+        rules.append(my_args.default_rule)
 
     if my_args.print_args:
         print(f"* Args:\n\t{my_args}\n* Named Rules:\n\t{named_rules}\n* Rules:\n\t{rules}")
@@ -182,6 +200,13 @@ class Tests:
         "Match a regex pattern"
         return sm.matchTest(s)
 
+    def s(s):
+        "Search for a regex pattern"
+        r = re.compile(s)
+        def c(i, _):
+            return r.search(i)
+        return c
+
     def ceq(n):
         "input Count EQuals"
         n = int(n)
@@ -216,6 +241,11 @@ class Actions:
         "Literal string"
         # Return empty string instead of None
         return s if s else ""
+
+    def s(s):
+        "Sub all occurrences of the test pattern with a replacement"
+        # TODO: assert the result is an re.match
+        return lambda i, t: t.result.re.sub(s, i)
 
     def _default(s):
         "default action returns None"
