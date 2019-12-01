@@ -33,7 +33,6 @@ def main(args, env, stdin):
     More documentation and examples in sled.md:
     https://github.com/inventhouse/statemachine/blob/master/sled.md
     """)
-    # epilog = "\n".join([ textwrap.fill(s, width=75) for s in epilog.splitlines() ])  # Wrap each paragraph separately
 
     arg_parser = argparse.ArgumentParser(
         description=wrapper(description, width=75),
@@ -98,6 +97,7 @@ def main(args, env, stdin):
 
 ###  Rule Parsing  ###
 def parse_rules(l, aliases=None):
+    "Parse a list of rule strings into rules suitable for statemachine.add"
     rules = []
     for s in l:
         parts = split_rule(s)
@@ -135,6 +135,7 @@ def parse_rules(l, aliases=None):
 
 
 def split_rule(s):
+    "Split a rule string based on the inital delimeter"
     d,s = s[0], s[1:]
     parts = [ p if len(p) else None for p in s.split(d) ]
     return parts
@@ -204,6 +205,7 @@ def wrapper(text, **kwargs):
 
 
 def helper(cls):
+    "Extract doc strings from a class's 'regular' methods to build a help-string"
     keys = sorted([ k for k in cls.__dict__.keys() if not k.startswith("_") ])
     helps = [ (k, cls.__dict__[k].__doc__) for k in keys if cls.__dict__[k].__doc__ ]
     default_key = "_default"
