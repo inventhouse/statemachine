@@ -1,0 +1,36 @@
+Clone of `statusparser` using sled rules.
+
+_(( add more about the rules file expectations ))_
+
+Named Rules:
+    /startYesterday/L/1. What did you do yesterday?/yesterday/L/_Yesterday:_  # Use '/' since the action string has ':'
+    /startToday/L/2. What do you commit to today?/today/L/_Today:_
+    :startHowFar:L:3. How far along are you? Do you think you'll finish soon?:start
+
+    :myStatus:T:::F:> {i}
+
+    :PassAll:T:::I
+    :DropAll:T
+
+Add Rules
+    :start:startYesterday
+    :start:startToday
+    :start:DropAll
+
+    :yesterday:startToday
+    :yesterday:M:@bholt:myYesterday
+    :yesterday:DropAll
+
+    :myYesterday:startToday
+    :myYesterday:M:^@\w+$:yesterday
+    :myYesterday:myStatus
+
+    :today:startHowFar
+    :today:M:@bholt:myToday
+    :today:DropAll
+
+    :myToday:startHowFar
+    :myToday:M:^@\w+$:today
+    :myToday:myStatus
+
+End Rules

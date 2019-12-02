@@ -65,11 +65,6 @@ def main(args, env, stdin):
         metavar="RULE",
         help="Add rules to the statemachine.",
     )
-    # arg_parser.add_argument(
-    #     "-f", "--rules-file",
-    #     metavar="FILE",
-    #     help="A file of rules for the statemachine.",
-    # )
     arg_parser.add_argument(
         "-d", "--drop-all",
         dest="default_rule",
@@ -85,6 +80,11 @@ def main(args, env, stdin):
         const=(None, sm.trueTest, None, sm.inputAction, "PassAll"),
         default=None,
         help="Add a final PassAll rule to pass any input not handled."
+    )
+    arg_parser.add_argument(
+        "-f", "--rules-file",
+        metavar="FILE",
+        help="A file of rules for the statemachine.",
     )
     arg_parser.add_argument(
         "-t", "--trace",
@@ -107,8 +107,18 @@ def main(args, env, stdin):
     )
     my_args = arg_parser.parse_args(args[1:])
 
-    named_rules = { n: r for n,*r in parse_rules(my_args.named_rules) }
-    rules = parse_rules(my_args.add_rules, aliases=named_rules)
+    named_rules = {}
+    rules = []
+    named_lines = []
+    add_lines = []
+    if my_args.rules_file:
+        (named_lines, add_lines) = rules_from_file(my_args.rules_file)
+
+    named_rules.update({ n: r for n,*r in parse_rules(named_lines) })
+    named_rules.update({ n: r for n,*r in parse_rules(my_args.named_rules) })  # Named rules in args can override named rules from the file
+    rules.extend(parse_rules(my_args.add_rules, aliases=named_rules))  # Added rules in args have higher precedence than rules from the file
+    rules.extend(parse_rules(add_lines, aliases=named_rules))
+
     if my_args.default_rule:
         rules.append(my_args.default_rule)
 
@@ -258,6 +268,64 @@ def wrapper(text, **kwargs):
     "Nothing worse than a bad wrap"
     # Wrap each paragraph separately, then put them back together
     return "\n".join([ textwrap.fill(s, **kwargs) for s in text.splitlines() ])
+
+
+def rules_from_file(rules_file):
+    named_lines = []
+    def named(i,t):
+        named_lines.append(i)
+    add_lines = []
+    def add(i,t):
+        add_lines.append(i)
+    named_section = (
+        sm.matchTest(r"Named\s*Rules(:?)", flags=re.IGNORECASE),
+        "named", None, "NamedSection"
+    )
+    add_section = (
+        sm.matchTest(r"Add\s*Rules(:?)", flags=re.IGNORECASE),
+        "add", None, "AddSection"
+    )
+    end_section = (
+        sm.matchTest(r"End\s*Rules(:?)", flags=re.IGNORECASE),
+        "start", None, "EndSection"
+    )
+
+    tracer = True
+    # tracer = sm.Tracer(printer=lambda s: print(f"T> {s}"))
+    categorizer = sm.StateMachine("start", tracer=tracer)
+    categorizer.build(
+        "named",
+        add_section,
+        named_section,
+        end_section,
+        (sm.trueTest, None, named, "Named")
+    )
+    categorizer.build(
+        "add",
+        add_section,
+        named_section,
+        end_section,
+        (sm.trueTest, None, add, "Add")
+    )
+    categorizer.build(
+        None,
+        add_section,
+        named_section,
+        end_section,
+        (sm.trueTest, None, None, "Drop")
+    )
+    # print(categorizer.rules)
+
+    no_comment = re.compile(r"(^#.*$)|(\s+#\s.*$)")
+    with open(rules_file, "r") as rf:
+        lines = ( no_comment.sub("", l) for l in rf )
+        lines = ( l.strip() for l in lines )
+        lines = ( l for l in lines if re.search(r"\S", l))
+        # print("\n".join(lines), end="")
+        for l in lines:
+            categorizer.input(l)
+
+    return (named_lines, add_lines)
 
 
 def helper(cls):
