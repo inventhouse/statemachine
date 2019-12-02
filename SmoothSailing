@@ -2,7 +2,7 @@
 # Copyright (c) 2019 Benjamin Holt -- MIT License
 
 """
-Tiny pointless interactive fiction game to play with `statemachine`
+Tiny, seemingly pointless, interactive fiction game to play with `statemachine`
 """
 import random
 # import re

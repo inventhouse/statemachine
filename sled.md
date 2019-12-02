@@ -14,7 +14,7 @@ Rules with no starting state will be added to all states, but are evaluated afte
 
 If an input does not match any rule for the current state, an exception is raised with a short trace of recent transitions; the depth of this trace can be set or additional tracing can be enabled with `-t/--trace`.
 
-Named rules can be defined with `-r/--named-rules` and start with a delimiter character of our choice follwed by 7 fields:
+Named rules can be defined with `-r/--named-rules` and start with a (non-whitespace) delimiter character of our choice follwed by 7 fields:
 
     :name:test:arg:dst:action:arg:tag
 
@@ -27,7 +27,7 @@ For convenience, unnecessary fields may be omitted from the end in all cases, 't
 
 A detailed example
 ------------------
-This example will use the `status.txt` file, a sanitized version of the output from a team status chatbot.  Throughout the example, we'll use the `:` delimiter as a convention, but each rule can be defined with _any_ character that doesn't otherwise appear in the rule.
+This example will use the `status.txt` file, a sanitized version of the output from a team status chatbot.  Throughout the example, we'll use the `:` delimiter as a convention, but each rule can be defined with any non-whitespace character that doesn't otherwise appear in the rule.
 
 ### Pass lines between delimiters
 
@@ -184,6 +184,5 @@ To Do
     - DONE: `-p/--pass-all`, `-d/--drop-all` to add pass/drop-by-default rule
     - PUNT: lenient vs. "strict"
     - DONE: Full trace with prefix flag
-
 
 ---
