@@ -174,9 +174,9 @@ def anyTest(l):
     return c
 
 
-def matchTest(pattern):
+def matchTest(pattern, flags=0):
     "Creates a test closure that returns true if an input matches `pattern` using `re.match`"
-    r = re.compile(pattern)
+    r = re.compile(pattern, flags=flags)
     def c(i, _):
         return r.match(i)
     return c
