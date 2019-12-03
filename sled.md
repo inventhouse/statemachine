@@ -150,11 +150,15 @@ Rules files
 -----------
 Entering all these rules on the command-line can be tedious and without comments or other context, could be very hard to understand again.  Thus, we can get rules from a file with `-f/--rules-file`.
 
-Rules are parsed from within blocks marked with `Named Rules:` and `Add Rules:` lines and a block can be closed with `End Rules`; any content outside the blocks is ignored.  `#`-style comments are also ignored; see [`statusparser.sled`](statusparser.sled)
+Rules are parsed from within blocks marked with `Named Rules:` and `Add Rules:` lines and a block can be closed with `End Rules`; any content outside the blocks is ignored.  `#`-style comments are also ignored; see [`statusparser.sled`](statusparser.sled) for some examples of how the rules are parsed.  We can run the example like this:
+
+`> cat status.txt | ./sled -f statusparser.sled`
 
 All the `Named Rules:` and `Add Rules:` blocks will be coalesced so the named rules will be available to all add rules commands even if they were defined later in the file.
 
-Additionally, rules named on the command-line can override ones defined in the file and any added on the command-line will have higher precedence.
+Additionally, rules named on the command-line can override ones defined in the file and any added on the command-line will have higher precedence.  For example, to see all the lines that the `DropAll` rule would've dropped, we can run:
+
+`> cat status.txt | ./sled -f statusparser.sled -r ":DropAll:T:::F:D> {i}"`
 
 To Do
 -----
