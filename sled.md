@@ -2,15 +2,15 @@ Statemachine Line EDitor
 ========================
 or: Sed-Like EDitor
 -------------------
-A bit like `sed` but uses statemachine-based rules to create line-based filters and transducers.
+A bit like [`sed`](https://en.wikipedia.org/wiki/sed) but uses statemachine-based rules to create line-based filters and transducers.
 
-Neat!  But why not just use `sed`?  Sure, go for it, it's one of the great utilities.  This works very differently, and I make no claims that it is better or easier.  It _was_ a ton of fun to write, though, and it uses modern Python regular expressions and formatting, which I like.
+Neat!  But why not just use `sed`?  Sure, go for it, it's one of the great utilities.  This works _**very**_ differently, and I make no claims that it is better or easier.  It was _a ton_ of fun to write, though, and it uses modern Python regular expressions and formatting, which I like.
 
 Overview
 --------
 `sled` is a front-end on a general-purpose engine, `statemachine`; it defines just a few simple tests and actions for filtering and transforming lines of text, but if we need more, we can always move up to Python with the full power and flexibility of `statemachine`.
 
-Our parsers will be defined by rules that start from a state, and based on a test, move to a destination state ("dst") and may perform an action; rules are also allowed to have a "tag" to aid in tracing and debugging.
+Our parsers will be defined by rules that start from a state, and based on a test, move to a destination state ("dst") and may perform an action the result of which is the output of the parser; rules are also allowed to have a "tag" to aid in tracing and debugging.
 
 Rules with no starting state will be added to all states, but are evaluated after all explict rules; rules with no "dst" remain in the same state ("self-transition").
 
