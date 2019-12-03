@@ -278,15 +278,15 @@ def rules_from_file(rules_file):
     def add(i,t):
         add_lines.append(i)
     named_section = (
-        sm.matchTest(r"Named\s*Rules(:?)", flags=re.IGNORECASE),
+        sm.matchTest(r"Named\s*Rules\s*:*", flags=re.IGNORECASE),
         "named", None, "NamedSection"
     )
     add_section = (
-        sm.matchTest(r"Add\s*Rules(:?)", flags=re.IGNORECASE),
+        sm.matchTest(r"Add\s*Rules\s*:*", flags=re.IGNORECASE),
         "add", None, "AddSection"
     )
     end_section = (
-        sm.matchTest(r"End\s*Rules(:?)", flags=re.IGNORECASE),
+        sm.matchTest(r"End\s*Rules\s*:*", flags=re.IGNORECASE),
         "start", None, "EndSection"
     )
 
@@ -316,7 +316,7 @@ def rules_from_file(rules_file):
     )
     # print(categorizer.rules)
 
-    no_comment = re.compile(r"(^#.*$)|(\s+#\s.*$)")
+    no_comment = re.compile(r"(^#.*$)|(\s+#+\s.*$)")
     with open(rules_file, "r") as rf:
         lines = ( no_comment.sub("", l) for l in rf )
         lines = ( l.strip() for l in lines )

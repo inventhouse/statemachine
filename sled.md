@@ -4,8 +4,10 @@ or: Sed-Like EDitor
 -------------------
 A bit like `sed` but uses statemachine-based rules to create line-based filters and transducers.
 
-Introduction
-------------
+Neat!  But why not just use `sed`?  Sure, go for it, it's one of the great utilities.  This works very differently, and I make no claims that it is better or easier.  It _was_ a ton of fun to write, though, and it uses modern Python regular expressions and formatting, which I like.
+
+Overview
+--------
 `sled` is a front-end on a general-purpose engine, `statemachine`; it defines just a few simple tests and actions for filtering and transforming lines of text, but if we need more, we can always move up to Python with the full power and flexibility of `statemachine`.
 
 Our parsers will be defined by rules that start from a state, and based on a test, move to a destination state ("dst") and may perform an action; rules are also allowed to have a "tag" to aid in tracing and debugging.
@@ -144,14 +146,18 @@ This shows us the state and which input it did not recognize and a bit about how
 
 For convenience, `-d/--drop-all` and `-p/--pass-all` can add a catch-all rule for us.
 
+Rules files
+-----------
+Entering all these rules on the command-line can be tedious and without comments or other context, could be very hard to understand again.  Thus, we can get rules from a file with `-f/--rules-file`.
+
+Rules are parsed from within blocks marked with `Named Rules:` and `Add Rules:` lines and a block can be closed with `End Rules`; any content outside the blocks is ignored.  `#`-style comments are also ignored; see [`statusparser.sled`](statusparser.sled)
+
+All the `Named Rules:` and `Add Rules:` blocks will be coalesced so the named rules will be available to all add rules commands even if they were defined later in the file.
+
+Additionally, rules named on the command-line can override ones defined in the file and any added on the command-line will have higher precedence.
 
 To Do
 -----
-- rules file?  `#!`?
-    - read rules file, and gross parse stripping #-style comments and create named list and rules list
-    - command rules should override file rules
-        - thus parse those, parse file named rules but update with named_rules, then parse file rules and append to command rules before adding
-
 - input file(s) instead of stdin
 
 - Error action?  fire the unrecognized handler deliberately
@@ -159,10 +165,6 @@ To Do
 
 - NO: fold DSL into main statemachine? - unless I figure a better way to do tests and actions than hardcoded maps, just no.
     - maybe hoist some of the tests or actions, though
-
-- maybe add sed-ish versions of some basic things
-- maybe a `-m/--match-and-format` "simple" version that assumes test is `match` and action is `format` and just takes the args
-    - `-e/--sed-expression`, `-m/--match-and-format`, and `-a/--add-rules` would be mutually exclusive
 
 ### Doneyard
 
@@ -185,4 +187,14 @@ To Do
     - PUNT: lenient vs. "strict"
     - DONE: Full trace with prefix flag
 
+- DONE: rules file
+    - DONE: read rules file, and gross parse stripping #-style comments and create named list and rules list
+    - DONE: command rules should override file rules
+        - DONE: thus parse those, parse file named rules but update with named_rules, then parse file rules and append to command rules before adding
+    - DONE: comments
+    - DONE: ignore surrounding junk (allow rules to be embedded in other content)
+
+- PUNT: maybe add sed-ish versions of some basic things
+- PUNT: maybe a `-m/--match-and-format` "simple" version that assumes test is `match` and action is `format` and just takes the args
+    - `-e/--sed-expression`, `-m/--match-and-format`, and `-a/--add-rules` would be mutually exclusive
 ---
