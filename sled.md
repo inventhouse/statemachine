@@ -162,6 +162,13 @@ Additionally, rules named on the command-line can override ones defined in the f
 
 To Do
 -----
+- DONE: color, bold, etc style formatting
+    - DONE: steal tput from `allgit`
+    - NO: or could just hardcode ansi codes - ick
+    - DONE: formatting for `S`ub action
+    - `--style-help`
+    - Docs & examples
+
 - input file(s) instead of stdin
 
 - Error action?  fire the unrecognized handler deliberately

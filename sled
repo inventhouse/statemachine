@@ -8,7 +8,11 @@ or: Sed-Like EDitor
 Like `sed` but using statemachine-based rules instead of imperative commands.
 """
 import argparse
+from functools import lru_cache
 import re
+import shutil
+import subprocess as sub
+import sys
 import textwrap
 
 import statemachine as sm
@@ -128,6 +132,7 @@ def main(args, env, stdin):
     if my_args.more_help:
         print(f"{helper(Tests)}\n\n{helper(Actions)}")
         return 0
+    # TODO: style-help
 
     tracer = True  # Use the built-in default tracing
     if my_args.trace:
@@ -240,8 +245,8 @@ class Tests:
 class Actions:
     "Actions"
     def f(s):
-        ":F:s:\tFormatted output; input will be passed as 'i', test result will be 'r'"
-        return lambda i, t: s.format(i=i, r=t.result)
+        ":F:s:\tFormatted output; input will be passed as 'i', test result will be 'r', 's' can add text styles, and 'bg' can set background color.  When using styles or colors be sure to include {s.off}"
+        return lambda i, t: s.format(i=i, r=t.result, s=style, bg=bg_style)
 
     def i(_):
         ":I::\treturn the Input"
@@ -253,9 +258,9 @@ class Actions:
         return s if s else ""
 
     def s(s):
-        ":S:r:\tSub all occurrences of the test pattern with a replacement"
+        ":S:r:\tSub all occurrences of the test pattern with a replacement; formatting is available in the replacement string as describe above."
         # TODO: assert the result is an re.match
-        return lambda i, t: t.result.re.sub(s, i)
+        return lambda i, t: t.result.re.sub(s.format(i=i, r=t.result, s=style, bg=bg_style), i)
 
     def _default(s):
         ":::\tdefault action returns no output (drops input)"
@@ -337,14 +342,75 @@ def helper(cls):
         helps.append(("None", cls.__dict__[default_key].__doc__))
     # help_string = "\n\t".join([ f"{k}:\t{h}" for k,h in helps ])
     help_string = "\n\t".join([ f"{h}" for _,h in helps ])
-    return f"{cls.__doc__}:\n\t{help_string}"
+    return f"{cls.__doc__}:\n\t{help_string}"  # FIXME: wrap helps
+#####
+
+
+###  Colors  ###
+# Here's a nice tutorial on tput: http://www.linuxcommand.org/lc3_adv_tput.php
+def tput_lookup(*cap):
+    "Get the value for a capname from tput, see man tput for more information"
+    tp_cmd = ["tput",] + [ str(i) for i in cap ]
+    result = sub.run(tp_cmd, stdout=sub.PIPE)
+    r = ""  # Default to falsey
+    if result.returncode == 0:  # If success, capability exists or property is true
+        r = result.stdout.decode("utf-8")
+        if r:
+            try:
+                r = int(r)  # Note: many of the int
+            except ValueError:
+                pass  # Nope, not an int
+        else:
+            r = True  # tput command success means "cap is true"
+    return r
+
+
+def tput_swap(dummy):
+    "Decorator to replace a dummy implementation with calls to tput if appropreate and available"
+    if sys.stdout.isatty() and shutil.which("tput"):
+        return lru_cache()(tput_lookup)  # Note: some attributes (e.g. "cols") can change, so cache may be stale
+    else:
+        return dummy
+
+
+@tput_swap
+def tput(*cap):
+    "Dummy tput implementation, just returns empty string for now"
+    return ""  # This might not make much sense for some things (eg "cols"), so callers may need to test and use sensible defaults
+
+
+class Stylist(object):
+    "Map attributes to tput capabilities via an aliases dictionary"
+    def __init__(self, aliases, fallback=None):
+        self.aliases = aliases
+        self.fallback = fallback if fallback else tput
+
+    def __getattr__(self, s):
+        return self.lookup(s)
+
+    def lookup(self, s, *params):
+        if s in self.aliases:
+            return tput(*self.aliases[s])
+        else:
+            return self.fallback(s, *params)
+
+
+COLOR_NAMES = ("black", "red", "green", "yellow", "blue", "magenta", "cyan", "white", "_", "default",)
+FG_COLORS = { c: ("setaf", n) for n,c in enumerate(COLOR_NAMES) }
+STYLES = {"off": ("sgr0",), "b": ("bold",), "u": ("smul",), "/u": ("rmul",), "em": ("smso",), "/em": ("rmso",),}
+STYLES.update(FG_COLORS)
+style = Stylist(STYLES)
+
+BG_COLORS = { c: ("setab", n) for n,c in enumerate(COLOR_NAMES) }
+BG_COLORS.update({"off": ("sgr0",),})  # HACK: make sure any style responds to "off"
+bg_style = Stylist(BG_COLORS)
 #####
 
 
 #####
 if __name__ == "__main__":
     import os
-    import sys
+    # import sys
     xit = main(sys.argv, os.environ, sys.stdin)
     sys.exit(xit)
 #####
