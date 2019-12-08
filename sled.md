@@ -156,9 +156,11 @@ Rules are parsed from within blocks marked with `Named Rules:` and `Add Rules:` 
 
 All the `Named Rules:` and `Add Rules:` blocks will be coalesced so the named rules will be available to all add rules commands even if they were defined later in the file.
 
-Additionally, rules named on the command-line can override ones defined in the file and any added on the command-line will have higher precedence.  For example, to see all the lines that the `DropAll` rule would've dropped, we can run:
+Additionally, rules named on the command-line can override ones defined in the file and any added on the command-line will have higher precedence.  For example, to dimly see all the lines that the `DropAll` rule would've dropped, we can run:
 
-`> cat status.txt | ./sled -f statusparser.sled -r ":DropAll:T:::F:D> {i}"`
+`> cat status.txt | ./sled -f statusparser.sled -r ":DropAll:T:::F:{s.dim}D> {i}{s.off}"`
+
+(Note that some lines are handled by other rules, so this doesn't actually show every dropped line.)
 
 To Do
 -----
@@ -168,6 +170,7 @@ To Do
     - DONE: formatting for `S`ub action
     - DONE: `--style-help`
     - Docs & examples
+    - pull styling out into its own importable module
 
 - HTML escaping and styling?
 

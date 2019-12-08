@@ -7,4 +7,6 @@ _Fun with state machines and automata_
 
 - [**SmoothSailing**](SmoothSailing) - Tiny, seemingly pointless, interactive fiction game to play with [`statemachine.py`](statemachine.py)
 
+- [**statusparser**](statusparser) - Small example of a parser using the [`statemachine.py`](statemachine.py) engine to selectively extract and format some text; compare with [`statusparser.sled`](statusparser.sled) which instructs [`sled`](sled) to do approximately the same transformation.
+
 ---
