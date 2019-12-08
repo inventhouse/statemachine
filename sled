@@ -138,7 +138,7 @@ def main(args, env, stdin):
         print(f"{helper(Tests)}\n\n{helper(Actions)}")
         return 0
     if my_args.style_help:
-        print("A 'stylist' object is available in formatting contexts as `s`; styles and colors are attributes, and output is returned to normal with `s.off`, like this\n\n\tTo {{s.b}}boldly{{s.off}} go where no one has gone before\n\tTo {s.b}boldly{s.off} go where no one has gone before\n\nText styling varies a lot based on the terminal and settings.  Here are some examples of their appearance:\n".format(s=style))
+        print("In formatting contexts styles and colors are available as attributes on an object `s`, and usually output should returned to normal with `s.off`, though a couple styles also offer end-codes.  Like this\n\n\tTo {{s.b}}boldly{{s.off}} go where no one has gone before\n\tTo {s.b}boldly{s.off} go where no one has gone before\n\nText styling varies a lot based on the terminal and settings.  Here are some examples of their appearance:\n".format(s=style))
         print(style_helper())
         return 0
 
@@ -355,7 +355,7 @@ def helper(cls):
 
 def style_helper():
     h = ["Styles:",]
-    s = ["{s.b}b (bold){s.off}", "{s.rev}rev{s.off}", "{s.blink}blink{s.off}", "{s.u}u /u{s./u}", "{s.em}em /em{s./em}", "{s.invis}invis{s.off} (invis)"]
+    s = ["{s.b}b|bold{s.off}", "{s.rev}rev{s.off}", "{s.blink}blink{s.off}", "{s.u}u u_off{s.u_off}", "{s.em}em em_off{s.em_off}", "{s.invis}invis{s.off} (invis)"]
     s = [ i.format(s=style) for i in s ]
     h.append("\t" + "  ".join(s))
     h.append("Colors:")
@@ -419,7 +419,7 @@ COLOR_NAMES = ("black", "red", "green", "yellow", "blue", "magenta", "cyan", "wh
 FG_COLORS = { c: ("setaf", n) for n,c in enumerate(COLOR_NAMES) }
 BG_COLORS = { f"{c}_bg": ("setab", n) for n,c in enumerate(COLOR_NAMES) }
 
-STYLES = {"off": ("sgr0",), "b": ("bold",), "u": ("smul",), "/u": ("rmul",), "em": ("smso",), "/em": ("rmso",),}
+STYLES = {"off": ("sgr0",), "b": ("bold",), "u": ("smul",), "u_off": ("rmul",), "em": ("smso",), "em_off": ("rmso",),}
 style = Stylist(STYLES, FG_COLORS, BG_COLORS)
 #####
 

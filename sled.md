@@ -169,6 +169,7 @@ To Do
     - NO: or could just hardcode ansi codes - ick
     - DONE: formatting for `S`ub action
     - DONE: `--style-help`
+        - wrap style help
     - Docs & examples
     - pull styling out into its own importable module
 
