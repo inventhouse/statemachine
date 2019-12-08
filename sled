@@ -245,8 +245,8 @@ class Tests:
 class Actions:
     "Actions"
     def f(s):
-        ":F:s:\tFormatted output; input will be passed as 'i', test result will be 'r', 's' can add text styles, and 'bg' can set background color.  When using styles or colors be sure to include {s.off}"
-        return lambda i, t: s.format(i=i, r=t.result, s=style, bg=bg_style)
+        ":F:s:\tFormatted output; input will be passed as 'i', test result will be 'r', 's' can add text styles.  When using styles or colors be sure to include {s.off}"
+        return lambda i, t: s.format(i=i, r=t.result, s=style)
 
     def i(_):
         ":I::\treturn the Input"
@@ -260,7 +260,7 @@ class Actions:
     def s(s):
         ":S:r:\tSub all occurrences of the test pattern with a replacement; formatting is available in the replacement string as describe above."
         # TODO: assert the result is an re.match
-        return lambda i, t: t.result.re.sub(s.format(i=i, r=t.result, s=style, bg=bg_style), i)
+        return lambda i, t: t.result.re.sub(s.format(i=i, r=t.result, s=style), i)
 
     def _default(s):
         ":::\tdefault action returns no output (drops input)"
@@ -395,15 +395,12 @@ class Stylist(object):
             return self.fallback(s, *params)
 
 
-COLOR_NAMES = ("black", "red", "green", "yellow", "blue", "magenta", "cyan", "white", "_", "default",)
-FG_COLORS = { c: ("setaf", n) for n,c in enumerate(COLOR_NAMES) }
-STYLES = {"off": ("sgr0",), "b": ("bold",), "u": ("smul",), "/u": ("rmul",), "em": ("smso",), "/em": ("rmso",),}
-STYLES.update(FG_COLORS)
-style = Stylist(STYLES)
+COLOR_NAMES = ("black", "red", "green", "yellow", "blue", "magenta", "cyan", "white")  # REM, supposedly there is an "unused" and "default" after white, but they just seem to wrap
 
-BG_COLORS = { c: ("setab", n) for n,c in enumerate(COLOR_NAMES) }
-BG_COLORS.update({"off": ("sgr0",),})  # HACK: make sure any style responds to "off"
-bg_style = Stylist(BG_COLORS)
+STYLES = {"off": ("sgr0",), "b": ("bold",), "u": ("smul",), "/u": ("rmul",), "em": ("smso",), "/em": ("rmso",),}
+STYLES.update({ c: ("setaf", n) for n,c in enumerate(COLOR_NAMES) })  # Foreground colors
+STYLES.update({ f"{c}_bg": ("setab", n) for n,c in enumerate(COLOR_NAMES) })  # Background colors
+style = Stylist(STYLES)
 #####
 
 
