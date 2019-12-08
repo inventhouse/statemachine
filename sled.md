@@ -4,7 +4,7 @@ or: Sed-Like EDitor
 -------------------
 A bit like [`sed`](https://en.wikipedia.org/wiki/sed) but uses statemachine-based rules to create line-based filters and transducers.
 
-Neat!  But why not just use `sed`?  Sure, go for it, it's one of the great utilities.  This works _**very**_ differently, and I make no claims that it is better or easier.  It was _a ton_ of fun to write, though, and it uses modern Python regular expressions and formatting, which I like.
+Neat!  But why not just use `sed`?  Sure, go for it, it's one of the great utilities.  This works _**very**_ differently, and I make no claims that it is better or easier.  It was _a ton_ of fun to write, though, and it uses modern Python regular expressions and formatting, which I like, and offers output styling like colors and bold.
 
 Overview
 --------
@@ -166,8 +166,10 @@ To Do
     - DONE: steal tput from `allgit`
     - NO: or could just hardcode ansi codes - ick
     - DONE: formatting for `S`ub action
-    - `--style-help`
+    - DONE: `--style-help`
     - Docs & examples
+
+- HTML escaping and styling?
 
 - input file(s) instead of stdin
 

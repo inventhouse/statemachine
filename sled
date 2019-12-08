@@ -104,6 +104,11 @@ def main(args, env, stdin):
         help="Print help about the available tests and actions.",
     )
     arg_parser.add_argument(
+        "--style-help",
+        action="store_true",
+        help="Print help about the available text styles.",
+    )
+    arg_parser.add_argument(
         "--print-args",
         action="store_true",
         # help="Print arguments and compiled rules, then exit.",
@@ -132,7 +137,10 @@ def main(args, env, stdin):
     if my_args.more_help:
         print(f"{helper(Tests)}\n\n{helper(Actions)}")
         return 0
-    # TODO: style-help
+    if my_args.style_help:
+        print("Text styling varies a lot based on based on the terminal and settings.  Here are some examples of their appearance:\n")
+        print(style_helper())
+        return 0
 
     tracer = True  # Use the built-in default tracing
     if my_args.trace:
@@ -343,6 +351,20 @@ def helper(cls):
     # help_string = "\n\t".join([ f"{k}:\t{h}" for k,h in helps ])
     help_string = "\n\t".join([ f"{h}" for _,h in helps ])
     return f"{cls.__doc__}:\n\t{help_string}"  # FIXME: wrap helps
+
+
+def style_helper():
+    h = ["Styles:",]
+    s = ["{s.b}b (bold){s.off}", "{s.rev}rev{s.off}", "{s.blink}blink{s.off}", "{s.u}u /u{s./u}", "{s.em}em /em{s./em}", "{s.invis}invis{s.off} (invis)"]
+    s = [ i.format(s=style) for i in s ]
+    h.append("\t" + "  ".join(s))
+    h.append("Colors:")
+    cl = [ "{{s.{n}}}{n}{{s.off}}".format(n=n).format(s=style) for n in COLOR_NAMES]
+    h.append("\t" + "  ".join(cl))
+    h.append("Backgrounds:")
+    cl = [ "{{s.{n}_bg}}{n}_bg{{s.off}}".format(n=n).format(s=style) for n in COLOR_NAMES]
+    h.append("\t" + "  ".join(cl))
+    return "\n".join(h)
 #####
 
 
@@ -380,27 +402,25 @@ def tput(*cap):
 
 
 class Stylist(object):
-    "Map attributes to tput capabilities via an aliases dictionary"
-    def __init__(self, aliases, fallback=None):
-        self.aliases = aliases
-        self.fallback = fallback if fallback else tput
+    "Map attributes to tput capabilities via aliases dictionaries"
+    def __init__(self, *aliases):
+        self.aliases = {}
+        for d in aliases:
+            self.aliases.update(d)
 
     def __getattr__(self, s):
-        return self.lookup(s)
-
-    def lookup(self, s, *params):
         if s in self.aliases:
             return tput(*self.aliases[s])
         else:
-            return self.fallback(s, *params)
+            return tput(s)
 
 
 COLOR_NAMES = ("black", "red", "green", "yellow", "blue", "magenta", "cyan", "white")  # REM, supposedly there is an "unused" and "default" after white, but they just seem to wrap
+FG_COLORS = { c: ("setaf", n) for n,c in enumerate(COLOR_NAMES) }
+BG_COLORS = { f"{c}_bg": ("setab", n) for n,c in enumerate(COLOR_NAMES) }
 
 STYLES = {"off": ("sgr0",), "b": ("bold",), "u": ("smul",), "/u": ("rmul",), "em": ("smso",), "/em": ("rmso",),}
-STYLES.update({ c: ("setaf", n) for n,c in enumerate(COLOR_NAMES) })  # Foreground colors
-STYLES.update({ f"{c}_bg": ("setab", n) for n,c in enumerate(COLOR_NAMES) })  # Background colors
-style = Stylist(STYLES)
+style = Stylist(STYLES, FG_COLORS, BG_COLORS)
 #####
 
 
