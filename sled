@@ -135,10 +135,10 @@ def main(args, env, stdin):
         print(f"* Args:\n\t{my_args}\n* Named Rules:\n\t{named_rules}\n* Rules:\n\t{rules}")
         return 0
     if my_args.more_help:
-        print(f"{helper(Tests)}\n\n{helper(Actions)}")
+        print(wrapper(f"{helper(Tests)}\n\n{helper(Actions)}", width=75))
         return 0
     if my_args.style_help:
-        print("In formatting contexts styles and colors are available as attributes on an object `s`, and usually output should returned to normal with `s.off`, though a couple styles also offer end-codes.  Like this:\n\n\tTo {{s.b}}boldly{{s.off}} go where no one has gone before\n\tTo {s.b}boldly{s.off} go where no one has gone before\n\nText styling varies a lot based on the terminal and settings.  Here are some examples of their appearance:\n".format(s=style))
+        print(wrapper("In formatting contexts styles and colors are available as attributes on an object `s`, and usually output should returned to normal with `s.off`, though a couple styles also offer end-codes.  Like this:\n\n\tTo {{s.b}}boldly{{s.off}} go where no one has gone before\n\tTo {s.b}boldly{s.off} go where no one has gone before\n\nText styling varies a lot based on the terminal and settings.  Here are some examples of their appearance:\n".format(s=style), width=75))
         print(style_helper())
         return 0
 
