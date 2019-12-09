@@ -138,7 +138,7 @@ def main(args, env, stdin):
         print(f"{helper(Tests)}\n\n{helper(Actions)}")
         return 0
     if my_args.style_help:
-        print("In formatting contexts styles and colors are available as attributes on an object `s`, and usually output should returned to normal with `s.off`, though a couple styles also offer end-codes.  Like this\n\n\tTo {{s.b}}boldly{{s.off}} go where no one has gone before\n\tTo {s.b}boldly{s.off} go where no one has gone before\n\nText styling varies a lot based on the terminal and settings.  Here are some examples of their appearance:\n".format(s=style))
+        print("In formatting contexts styles and colors are available as attributes on an object `s`, and usually output should returned to normal with `s.off`, though a couple styles also offer end-codes.  Like this:\n\n\tTo {{s.b}}boldly{{s.off}} go where no one has gone before\n\tTo {s.b}boldly{s.off} go where no one has gone before\n\nText styling varies a lot based on the terminal and settings.  Here are some examples of their appearance:\n".format(s=style))
         print(style_helper())
         return 0
 
@@ -223,9 +223,20 @@ class Tests:
         ":M:p:\tMatch a regex pattern"
         return sm.matchTest(s)
 
+    def mi(s):
+        ":MI:p:\tMatch a regex pattern, ignoring case"
+        return sm.matchTest(s, flags=re.IGNORECASE)
+
     def s(s):
         ":S:p:\tSearch for a regex pattern"
         r = re.compile(s)
+        def c(i, _):
+            return r.search(i)
+        return c
+
+    def si(s):
+        ":SI:p:\tSearch for a regex pattern, ignoring case"
+        r = re.compile(s, flags=re.IGNORECASE)
         def c(i, _):
             return r.search(i)
         return c
