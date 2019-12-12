@@ -6,10 +6,13 @@ A bit like [`sed`](https://en.wikipedia.org/wiki/sed) but uses statemachine-base
 
 Neat!  But why not just use `sed`?  Sure, go for it, it's one of the great utilities.  This works _**very**_ differently, and I make no claims that it is better or easier.  It was _a ton_ of fun to write, though, and it uses modern Python regular expressions and formatting, which I like, and offers output styling like colors and bold.
 
+`sled` is a front-end on a general-purpose engine, [`statemachine`](statemachine.py); it defines just a few simple tests and actions for filtering and transforming lines of text, but if we need more, we can always move up to Python with the full power and flexibility of `statemachine`.
+
+In these parsers, "states" serve to group the rules to apply to input; rules can filter or transform input, transition between states, or both.  Together states and rules build the logic for both navigating and processing the input stream.
+
+
 Overview
 --------
-`sled` is a front-end on a general-purpose engine, `statemachine`; it defines just a few simple tests and actions for filtering and transforming lines of text, but if we need more, we can always move up to Python with the full power and flexibility of `statemachine`.
-
 Our parsers will be defined by rules that start from a state, and based on a test, move to a destination state ("dst") and may perform an action the result of which is the output of the parser; rules are also allowed to have a "tag" to aid in tracing and debugging.
 
 Rules with no starting state will be added to all states, but are evaluated after all explict rules; rules with no "dst" remain in the same state ("self-transition").
@@ -26,6 +29,7 @@ Rules are added to states in the underlying statemachine with `-a/--add-rules`, 
     :state:test:arg:dst:action:arg:tag
 
 For convenience, unnecessary fields may be omitted from the end in all cases, 'test' and 'action' commands are not case-sensitive, and named rules will be automatically tagged.
+
 
 A detailed example
 ------------------
@@ -146,6 +150,7 @@ This shows us the state and which input it did not recognize and a bit about how
 
 For convenience, `-d/--drop-all` and `-p/--pass-all` can add a catch-all rule for us.
 
+
 Rules files
 -----------
 Entering all these rules on the command-line can be tedious and without comments or other context, could be very hard to understand again.  Thus, we can get rules from a file with `-f/--rules-file`.
@@ -162,16 +167,24 @@ Additionally, rules named on the command-line can override ones defined in the f
 
 (Note that some lines are handled by other rules, so this doesn't actually show every dropped line.)
 
+
 To Do
 -----
+- "intro to statemachines" - maybe as a separate tutorial?  or statemachine.md?
 - DONE: color, bold, etc style formatting
     - DONE: steal tput from `allgit`
     - NO: or could just hardcode ansi codes - ick
     - DONE: formatting for `S`ub action
     - DONE: `--style-help`
-        - wrap style help
+        - DONE: wrap style help - good 'nuff
     - Docs & examples
     - pull styling out into its own importable module
+    - `--styled` to force styling even when piped
+
+- wrap `--more-help` - hard to make this right
+
+- DONE: case-insensitive match and search actions
+    - any other flags?
 
 - HTML escaping and styling?
 
