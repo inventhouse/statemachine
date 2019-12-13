@@ -8,7 +8,7 @@ Neat!  But why not just use `sed`?  Sure, go for it, it's one of the great utili
 
 `sled` is a front-end on a general-purpose engine, [`statemachine`](statemachine.py); it defines just a few simple tests and actions for filtering and transforming lines of text, but if we need more, we can always move up to Python with the full power and flexibility of `statemachine`.
 
-In these parsers, "states" serve to group the rules to apply to input; rules can filter or transform input, transition between states, or both.  Together states and rules build the logic for both navigating and processing the input stream.
+In these parsers, "states" serve to group the rules to apply to input; rules can filter or transform input, transition between states (and, thus, rule-sets), or both.  Together states and rules build the logic for both navigating and processing the input stream and transforming it into an output stream.
 
 
 Overview
