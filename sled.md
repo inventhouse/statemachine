@@ -30,6 +30,13 @@ Rules are added to states in the underlying statemachine with `-a/--add-rules`, 
 
 For convenience, unnecessary fields may be omitted from the end in all cases, 'test' and 'action' commands are not case-sensitive, and named rules will be automatically tagged.
 
+In addtion to the general options and help that can be printed with `-h/--help`, available tests and actions are documented in `--more-help` and text styling is shown in `--style-help`.
+
+`F`ormat and `S`ub actions have a few automatic placeholders:
+- `{i}` contains the original input string
+- `{r}` contains the test result; if this is a `match` object, captured groups are available as items, like `{r[G]}`.  Note that in the `S`ub action, you probably want to use [`re.sub`'s backreferences](https://docs.python.org/3/library/re.html#re.sub) instead of `r`
+- `{s}` offers text styling and colors as attributes; don't forget to return the terminal to normal with `{s.off}`!  Note that formatting only applies to terminal output and is not emitted when the output is being piped or redirected.
+
 
 A detailed example
 ------------------
@@ -39,26 +46,26 @@ This example will use the `status.txt` file, a sanitized version of the output f
 
 Let's get the lines from `@bholt` to the next `@`-name line; for this we'll need a few named rules, defined with `-r/--named-rules`:
 
-- **AtBholt** - `M`atch lines starting with `@bholt`, move to the `bholt` state, and pass the `I`nput, with no argument and no tag (those last two fields could simply be skipped, which we will do with the rest of the examples):
+- **AtBholt** - `M`atch lines starting with `@bholt`, move to the `bholt` state, and `F`ormat the `i`nput `b`old and `blue`, with no tag (the last empty field could simply be skipped, which we will do with the rest of the examples):
 
-    `:AtBholt:M:@bholt:bholt:I::`
+    `:AtBholt:M:@bholt:bholt:F:{s.b}{s.blue}{i}{s.off}:`
 
 - **AtOther** - `M`atch lines starting with `@`, move to the `start` state, and no action will drop the line so we leave off the rest of the fields:
 
     `:AtOther:M:@:start`
 
-- **PassAll** - `T`rue will accept any line and takes no argument, no `dst` will simply remain in the same state, and pass the `I`nput is the action:
+- **PassAll** - `T`rue will accept any line and takes no argument, no "dst" will simply remain in the same state, and pass the `I`nput is the action:
 
     `:PassAll:T:::I`
 
-- **DropAll** - `T`rue accepts any line, no `dst` will remain in the same state, and no action will drop the input:
+- **DropAll** - `T`rue accepts any line, no "dst" will remain in the same state, and no action will drop the input:
 
     `:DropAll:T`
 
 Now we combine these into a state machine with `-a/--add-rules`.  `start` tries the `AtBholt` rule (which could transition to the `bholt` state), then falls-back to `DropAll`, on the other hand the `bholt` state checks `AtOther` (which transitions back to `start`) and otherwise does `PassAll`:
 
 ```
-> cat status.txt | ./sled -r ":AtBholt:M:@bholt:bholt:I::" ":AtOther:M:@:start" ":PassAll:T:::I" ":DropAll:T" -a ":start:AtBholt" ":start:DropAll" ":bholt:AtOther" ":bholt:PassAll"
+> cat status.txt | ./sled -r ":AtBholt:M:@bholt:bholt:F:{s.b}{s.blue}{i}{s.off}:" ":AtOther:M:@:start" ":PassAll:T:::I" ":DropAll:T" -a ":start:AtBholt" ":start:DropAll" ":bholt:AtOther" ":bholt:PassAll"
 @bholt
 Set up the stuff for JIRA-123, but was unable to test it
 some more
@@ -78,6 +85,8 @@ I didn't hear from @qed, @foo, @bar, @qux! Keep up your good work team!
 This could also be done with anonymous rules, as each rule was only added in one place in this example; named rules do have the advantage of automatic tagging to make trace output easier to understand, however.
 
 ### Tracing
+
+Statemachines are powerful and fascinating - and can be hard to debug if we can't see what they're doing sometimes.
 
 Try adding `-t` to see a _very_ detailed trace as the parser tries each rule.  All trace lines start with the prefix `T> ` by default; normal output lines are interspersed without a prefix.
 
@@ -181,6 +190,7 @@ To Do
     - pull styling out into its own importable module
     - `--styled` to force styling even when piped
 
+- change trace to take a format so we can use things like `{s.dim}`
 - wrap `--more-help` - hard to make this right
 
 - DONE: case-insensitive match and search actions
