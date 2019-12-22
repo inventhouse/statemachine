@@ -43,6 +43,18 @@ End Rules
 
 -----
 
+Comment tests (these lines are ignored anyway)
+#comment at start of line does not require space
+    #other comment doesn't require space after mark
+    require# space before mark
+##double comments collapse
+##
+another double ## comment
+end comment #
+end double ##
+
+-----
+
 Define some basic standbys down here out of the way; named rules are still available throughout the file, though.
 
 Anything between rules blocks is still ignored.

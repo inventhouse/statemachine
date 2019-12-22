@@ -21,7 +21,7 @@ import statemachine as sm
 
 ###  Main  ###
 def main(args, env, stdin):
-    description = "Statemachine Line EDitor, like `sed` but built with statemachine rules (v0.9)"
+    description = "Statemachine Line EDitor, like `sed` but built with statemachine rules (v1.0)"
     epilog = textwrap.dedent("""\
     Rules can be created with -r/--named-rules and start with a delimiter character of our choice follwed by 7 fields:
 
@@ -340,12 +340,14 @@ def rules_from_file(rules_file):
     )
     # print(categorizer.rules)
 
-    no_comment = re.compile(r"(^#.*$)|(\s+#+\s.*$)")
+    comment = re.compile(r"(^|\s+)#($|[^#].*$)")
+    dbl_comment = re.compile(r"##")
     with open(rules_file, "r") as rf:
-        lines = ( no_comment.sub("", l) for l in rf )
+        lines = ( comment.sub("", l) for l in rf )
+        lines = ( dbl_comment.sub("#", l) for l in lines )
         lines = ( l.strip() for l in lines )
         lines = ( l for l in lines if re.search(r"\S", l))
-        # print("\n".join(lines), end="")
+        # lines = list(lines); print("\n".join(lines), end="")  # join "spends" the generator, convert to list first so it can be iterated again
         for l in lines:
             categorizer.input(l)
 
