@@ -131,7 +131,7 @@ def main(args, env, stdin):
         (named_lines, add_lines) = rules_from_file(my_args.rules_file)
 
     if my_args.strip_comments:
-        named_rules["StripComments"] = (sm.trueTest, None, Actions._strip_comments(), None)
+        named_rules["StripComments"] = (sm.trueTest, None, strip_comments_action, None)
         add_lines.append("::StripComments")
 
     named_rules.update({ n: r for n,*r in parse_rules(named_lines) })
@@ -296,16 +296,14 @@ class Actions:
         ":::\tdefault action returns no output (drops input)"
         return None
 
-    def _strip_comments(_=None):
-        "strip #-style comments and collapse doubled-#"
-        comment = re.compile(r"(^|\s+)#($|[^#].*$)")
-        dbl_comment = re.compile(r"##")
-        def no_comment(i, _=None):
-            s = comment.sub("", i)
-            s = dbl_comment.sub("#", s)
-            return s
-        return no_comment
 
+COMMENT_RE = re.compile(r"(^|\s+)#($|[^#].*$)")
+DBL_COMMENT_RE = re.compile(r"##")
+def strip_comments_action(i, _=None):
+    "strip #-style comments and collapse doubled-#"
+    s = COMMENT_RE.sub("", i)
+    s = DBL_COMMENT_RE.sub("#", s)
+    return s
 #####
 
 
@@ -362,9 +360,8 @@ def rules_from_file(rules_file):
     )
     # print(categorizer.rules)
 
-    no_comment = Actions._strip_comments()
     with open(rules_file, "r") as rf:
-        lines = ( no_comment(l) for l in rf )
+        lines = ( strip_comments_action(l) for l in rf )
         lines = ( l.strip() for l in lines )
         lines = ( l for l in lines if re.search(r"\S", l))
         # lines = list(lines); print("\n".join(lines), end="")  # join "spends" the generator, convert to list first so it can be iterated again
