@@ -180,26 +180,13 @@ Additionally, rules named on the command-line can override ones defined in the f
 To Do
 -----
 - "intro to statemachines" - maybe as a separate tutorial?  or statemachine.md?
-- DONE: color, bold, etc style formatting
-    - DONE: steal tput from `allgit`
-    - NO: or could just hardcode ansi codes - ick
-    - DONE: formatting for `S`ub action
-    - DONE: `--style-help`
-        - DONE: wrap style help - good 'nuff
-    - Docs & examples
-    - pull styling out into its own importable module
-    - `--styled` to force styling even when piped
+- pull styling out into its own importable module
+- `--styled` to force styling even when piped
 
 - change trace to take a format so we can use things like `{s.dim}`
 - wrap `--more-help` - hard to make this right
 
-- DONE: `-c/--strip-comments` convenience rule to make stripping `#`-style comments easy
-    - DONE: no good mechanism to make it an explicit rule on all states, would have to be lower-priority implicit rule (could pre-process with a separate invocation and make it a named rule that could be explicitly added without needing to define it)
-    - PUNT: document somewhere other than `-h`?
 - generalize comment stripper to take a string like `//`, `;`, or `--`
-
-- DONE: case-insensitive match and search actions
-    - any other flags?
 
 - HTML escaping and styling?
 
@@ -245,4 +232,20 @@ To Do
 - PUNT: maybe add sed-ish versions of some basic things
 - PUNT: maybe a `-m/--match-and-format` "simple" version that assumes test is `match` and action is `format` and just takes the args
     - `-e/--sed-expression`, `-m/--match-and-format`, and `-a/--add-rules` would be mutually exclusive
+
+- DONE: color, bold, etc style formatting
+    - DONE: steal tput from `allgit`
+    - NO: or could just hardcode ansi codes - ick
+    - DONE: formatting for `S`ub action
+    - DONE: `--style-help`
+        - DONE: wrap style help - good 'nuff
+    - DONE: Docs & examples
+
+- DONE: `-c/--strip-comments` convenience rule to make stripping `#`-style comments easy
+    - DONE: no good mechanism to make it an explicit rule on all states, would have to be lower-priority implicit rule (could pre-process with a separate invocation and make it a named rule that could be explicitly added without needing to define it)
+    - PUNT: document somewhere other than `-h`?
+
+- DONE: case-insensitive match and search actions
+    - PUNT: any other flags?
+
 ---

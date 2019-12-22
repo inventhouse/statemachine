@@ -367,7 +367,7 @@ def rules_from_file(rules_file):
         lines = ( no_comment(l) for l in rf )
         lines = ( l.strip() for l in lines )
         lines = ( l for l in lines if re.search(r"\S", l))
-        lines = list(lines); print("\n".join(lines), end="")  # join "spends" the generator, convert to list first so it can be iterated again
+        # lines = list(lines); print("\n".join(lines), end="")  # join "spends" the generator, convert to list first so it can be iterated again
         for l in lines:
             categorizer.input(l)
 
