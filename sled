@@ -70,6 +70,13 @@ def main(args, env, stdin):
         help="Add rules to the statemachine.",
     )
     arg_parser.add_argument(
+        "-c", "--strip-comments",
+        action="store_true",
+        # const=(None, sm.trueTest, None, None, "StripComments"),
+        # default=None,
+        help="Add a StripComments rule to scrub #-style comments; must be explicitly added to states to raise its priority."
+    )
+    arg_parser.add_argument(
         "-d", "--drop-all",
         dest="default_rule",
         action="store_const",
@@ -122,6 +129,10 @@ def main(args, env, stdin):
     add_lines = []
     if my_args.rules_file:
         (named_lines, add_lines) = rules_from_file(my_args.rules_file)
+
+    if my_args.strip_comments:
+        named_rules["StripComments"] = (sm.trueTest, None, Actions._strip_comments(), None)
+        add_lines.append("::StripComments")
 
     named_rules.update({ n: r for n,*r in parse_rules(named_lines) })
     named_rules.update({ n: r for n,*r in parse_rules(my_args.named_rules) })  # Named rules in args can override named rules from the file
@@ -284,6 +295,17 @@ class Actions:
     def _default(s):
         ":::\tdefault action returns no output (drops input)"
         return None
+
+    def _strip_comments(_=None):
+        "strip #-style comments and collapse doubled-#"
+        comment = re.compile(r"(^|\s+)#($|[^#].*$)")
+        dbl_comment = re.compile(r"##")
+        def no_comment(i, _=None):
+            s = comment.sub("", i)
+            s = dbl_comment.sub("#", s)
+            return s
+        return no_comment
+
 #####
 
 
@@ -340,14 +362,12 @@ def rules_from_file(rules_file):
     )
     # print(categorizer.rules)
 
-    comment = re.compile(r"(^|\s+)#($|[^#].*$)")
-    dbl_comment = re.compile(r"##")
+    no_comment = Actions._strip_comments()
     with open(rules_file, "r") as rf:
-        lines = ( comment.sub("", l) for l in rf )
-        lines = ( dbl_comment.sub("#", l) for l in lines )
+        lines = ( no_comment(l) for l in rf )
         lines = ( l.strip() for l in lines )
         lines = ( l for l in lines if re.search(r"\S", l))
-        # lines = list(lines); print("\n".join(lines), end="")  # join "spends" the generator, convert to list first so it can be iterated again
+        lines = list(lines); print("\n".join(lines), end="")  # join "spends" the generator, convert to list first so it can be iterated again
         for l in lines:
             categorizer.input(l)
 
