@@ -41,10 +41,8 @@ def go_action(i, t):
 
 
 class Map:
-    def __init__(self, map_str=None, room_type=str):  # TODO: eventually parameterize direction tests and action
-        self.room_type = room_type
+    def __init__(self, map_str=None):
         self.rooms = defaultdict(dict)  # {name: {"n": name, ...},...}
-        # self.lines = []
         if map_str:
             self.parse(map_str)
 
@@ -61,8 +59,7 @@ class Map:
 
         # Tests and actions:
         map_section = sm.matchTest(r"\s*Map:")
-        # lex_re = re.compile(r"(?P<room>\[\w+\])|(?P<passage>[-+]+)|(?P<ignore>.+?)")  # REM: this ignore pattern produces a token per ignoreable character but is simple
-        lex_re = re.compile(r"(?P<room>\[\w+\])|(?P<passage>[-+]+)")  # REM: this pattern doesn't explicitly identify ignored chars, have to check spans, but doesn't add lots of junk tokens
+        lex_re = re.compile(r"(?P<room>\[\w+\])|(?P<passage>[-+]+)")  # REM: this pattern doesn't explicitly identify ignored chars, have to check spans
         lex_match = lambda i,_: lex_re.finditer(i)  # REM: finditer result is always truish
         def store_tokens(i,t):
             map_lines.append(i)
@@ -82,8 +79,6 @@ class Map:
         for l in map_str.splitlines():
             p.input(l)
 
-        # pprint(map_lines)
-        # pprint(map_tokens)
         self._configure_rooms(map_lines, map_tokens, map_key)
 
 
@@ -122,7 +117,6 @@ class Map:
                     break  # End of the (vertical) line
             return None
 
-
         for i, t_list in enumerate(map_tokens):
             prev_end = None
             prev_room = None
@@ -157,7 +151,7 @@ GRID_MAP = """
 """
 
 CABIN_MAP = """
-            x       x cabin x      |
+            x       x cabin x
         x[pool]-cl x[br]-[lr]x cl-[cabin_e]-
 D    |      |        x    |        |
 e---[s_w][stream]---[clearing]--[c_e]------
@@ -215,14 +209,8 @@ world.add(None, lambda i,_: i != "crash", None, "Sorry, you can't do that.", tag
 ###  Main  ###
 import sys
 print("Cabin in the Woods", flush=True)
-m = Map()
-# (l,t,k) = m.parse(GRID_MAP)
-# (l,t,k) = m.parse(CABIN_MAP)
-# pprint(l)
-# pprint(t)
-# pprint(k)
-# m.parse(GRID_MAP)
-m.parse(CABIN_MAP)
+m = Map(CABIN_MAP)
+# m = Map(GRID_MAP)
 pprint(m.rooms)
 sys.exit()
 
@@ -239,29 +227,31 @@ while True:
 ###  ToDo  ###
 """
 - Devise map "language"
-    - "rooms" are labeled with `\[\w+\]`
-        - immediately adjacent rooms connect by default
-        - "Key" to define short names for rooms per-mapstring
-    - symbols for horizontal and vertical passages
-        - allow vertical or horizontal passages to cross each other, but they only connect at "rooms"
-        - may need to distinguish between horizontal (`[-+]`) and vertical (`[|+]`) passages
-    - comments - simple #-to-eol, plus ignore non-room / non-passage chars
+    - DONE: "rooms" are labeled with `\[\w+\]`
+        - DONE: immediately adjacent rooms connect by default
+        - DONE: "Key" to define short names for rooms per-mapstring
+    - DONE: symbols for horizontal and vertical passages
+        - DONE: allow vertical or horizontal passages to cross each other, but they only connect at "rooms"
+        - DONE: may need to distinguish between horizontal (`[-+]`) and vertical (`[|+]`) passages
+    - DONE: comments - simply ignore non-room / non-passage chars
+    - DONE: symbols for "warp to"? - allowing repeated room names could enable "warp"
+    - DONE: multiple map sections? - parsing multiple map strings with names in common could enable "stitching"
     - PUNT: up/down passages? - use comments and manual rules for advanced things to start
-    - PUNT: symbols for "warp to"? - allowing repeated room names could enable "warp"
-    - PUNT: multiple map sections? - parsing multiple map strings with names in common could enable "stitching"
     - PUNT: map namespaces?
 - map parsing
-    - split lines
-    - strip #-comments
-    - simplify logic by regularizing the board?
+    - DONE: split lines
+    - PUNT: strip #-comments
+    - PUNT: simplify logic by regularizing the board?
         - square up lines
         - wrap each line in null-passages on both ends
         - add top and bottom null-passage lines
-    - find each room on a line and:
-        - (maybe not?) error if room was seen elsewhere on the map
-        - back-connect (bi-directional) if `previous_room` and unbroken line of passage chars
-        - set as `previous_room` if RH passage char
-        - also examine above, follow passage to prior room
+    - DONE: find each room on a line and:
+        - PUNT: (maybe not?) error if room was seen elsewhere on the map
+        - DONE: back-connect (bi-directional) if `previous_room` and unbroken line of passage chars
+        - DONE: set as `previous_room`
+        - DONE: also examine above, follow vertical passage to prior room
+
+- compile room dict to sm rules
 
 - maybe "map linter"?
     - warn if any rooms end up with redundant rules?
