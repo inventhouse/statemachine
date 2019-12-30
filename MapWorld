@@ -27,19 +27,6 @@ def adlib(x):
 
 
 ###  Map Maker  ###
-
-# TODO: eventually want a command class with "standard" name, synonyms, help, action, etc.  Help action can find command-based rules for the current state and print help
-N = sm.inTest(["n", "north"])
-S = sm.inTest(["s", "south"])
-E = sm.inTest(["e", "east"])
-W = sm.inTest(["w", "west"])
-
-def go_action(i, t):
-    s = t.dst if t.dst is not None else t.state
-    return s
-    # return adlib(messages.get(s, s))
-
-
 class Map:
     def __init__(self, map_str=None):
         self.rooms = defaultdict(dict)  # {name: {"n": name, ...},...}
@@ -137,6 +124,12 @@ class Map:
                 # "passage" tokens don't need anything done
                 prev_end = token.end()
 
+
+    def build(self, sm, commands, action, state_mapper=lambda r: r):
+        for room in self.rooms.keys():
+            directions = self.rooms[room]
+            rules = [ (commands[d], state_mapper(r), action) for d,r in directions.items() ]
+            sm.build(state_mapper(room), *rules)
 #####
 
 
@@ -176,6 +169,19 @@ messages = {
 
 
 ###  Actions  ###
+# TODO: eventually want a command class with "standard" name, synonyms, help, action, etc.  Help action can find command-based rules for the current state and print help
+GO_COMMANDS = {
+    "n": sm.inTest(["n", "north"]),
+    "s": sm.inTest(["s", "south"]),
+    "e": sm.inTest(["e", "east"]),
+    "w": sm.inTest(["w", "west"]),
+}
+
+# def go_action(i, t):
+#     s = t.dst if t.dst is not None else t.state
+#     return s
+#     # return adlib(messages.get(s, s))
+
 def lookAction(i, t):
     s = t.dst if t.dst is not None else t.state
     return adlib(messages.get(s, s))
@@ -193,13 +199,13 @@ def writeAction(*_):
 
 
 ###  World  ###
-
-
 world = sm.StateMachine("start")
 # world = StateMachine("start", tracer=20)  # Keep a deeper trace, -1 for unlimited
 # world = StateMachine("start", tracer=Tracer(printer=lambda s: print(f"T: {s}")))  # Complete tracer with prefix
-# world.add(state="start", test=sm.trueTest, dst=above, action=lookAction, tag="Start")
+world.add(state="start", test=sm.trueTest, dst="clearing", action=lookAction, tag="Start")
 
+m = Map(CABIN_MAP)
+m.build(world, GO_COMMANDS, lookAction)
 
 world.add(None, sm.inTest(["l", "look",]), None, lookAction, tag="Look")
 world.add(None, lambda i,_: i != "crash", None, "Sorry, you can't do that.", tag="Not crash")  # You can type "crash" to dump the state machine's trace
@@ -209,10 +215,9 @@ world.add(None, lambda i,_: i != "crash", None, "Sorry, you can't do that.", tag
 ###  Main  ###
 import sys
 print("Cabin in the Woods", flush=True)
-m = Map(CABIN_MAP)
 # m = Map(GRID_MAP)
-pprint(m.rooms)
-sys.exit()
+# pprint(m.rooms)
+# sys.exit()
 
 time.sleep(0.1)  # HACK: wait for flush; sometimes prompt prints out-of-order with print output in spite of flush=True
 print(world.input(input("Press enter to start. ")), flush=True)
