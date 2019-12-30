@@ -2,14 +2,12 @@
 # Copyright (c) 2019 Benjamin Holt -- MIT License
 
 """
-Tiny, seemingly pointless, interactive fiction game to play with `statemachine`
+Tiny, seemingly pointless, interactive fiction game to play with `statemachine` and 2D map parsing
 """
 from collections import defaultdict
 import random
 import re
 import time
-
-from pprint import pprint
 
 import statemachine as sm
 #####
@@ -159,11 +157,6 @@ Key:
 """
 
 messages = {
-    "sail": ("You ", ["set", "adjust", "tack",], " your sail ", ["to", "toward", "for"], " {}."),
-    "sleep": ("The bunk is ", ["soft", "comfortable", "warm", "cozy",], " and you ", ["rest", "sleep", "snooze", "nap", "doze",], " ", ["well", "deeply", "blissfully", "nicely"], "."),
-    "log": [("Weather was ", ["fair", "good", "lovely",], "."),
-        (["Good", "Quick", "Slow",], " sailing ", ["today", ("this ", ["morning", "afternoon", "evening",])], "."),
-    ],
 }
 #####
 
@@ -177,24 +170,11 @@ GO_COMMANDS = {
     "w": sm.inTest(["w", "west"]),
 }
 
-# def go_action(i, t):
-#     s = t.dst if t.dst is not None else t.state
-#     return s
-#     # return adlib(messages.get(s, s))
-
 def lookAction(i, t):
     s = t.dst if t.dst is not None else t.state
     return adlib(messages.get(s, s))
 
-def sailAction(i, t):
-    s = input("Where to? > ")
-    return adlib(messages["sail"]).format(s)
-
-log_entries = [(["Fair", "Nice", "Brisk",], " weather."),]  # Put one bogus entry in 'cos choose can't take an empty array
-def writeAction(*_):
-    s = input("What do you want to say? > ")
-    log_entries.append(s)
-    return "Written"
+sorryAction = "Sorry, you can't do that."
 #####
 
 
@@ -202,23 +182,46 @@ def writeAction(*_):
 world = sm.StateMachine("start")
 # world = StateMachine("start", tracer=20)  # Keep a deeper trace, -1 for unlimited
 # world = StateMachine("start", tracer=Tracer(printer=lambda s: print(f"T: {s}")))  # Complete tracer with prefix
-world.add(state="start", test=sm.trueTest, dst="clearing", action=lookAction, tag="Start")
 
+world.add(state="start", test=sm.trueTest, dst="clearing", action=lookAction, tag="Start")
 m = Map(CABIN_MAP)
+world.build("pool",
+    (GO_COMMANDS["e"], "clearing", lookAction),
+    (GO_COMMANDS["w"], None, sorryAction),
+    (GO_COMMANDS["n"], None, sorryAction),
+)
+world.build("bed_room",
+    (GO_COMMANDS["w"], None, sorryAction),
+    (GO_COMMANDS["n"], None, sorryAction),
+    (GO_COMMANDS["s"], None, sorryAction),
+)
+world.build("living_room",
+    (GO_COMMANDS["e"], None, sorryAction),
+    (GO_COMMANDS["n"], None, sorryAction),
+)
+world.add("cabin_e", GO_COMMANDS["w"], "clearing", lookAction)
+
+# world.add(state="start", test=sm.trueTest, dst="00", action=lookAction, tag="Start")
+# m = Map(GRID_MAP)
+
 m.build(world, GO_COMMANDS, lookAction)
 
 world.add(None, sm.inTest(["l", "look",]), None, lookAction, tag="Look")
-world.add(None, lambda i,_: i != "crash", None, "Sorry, you can't do that.", tag="Not crash")  # You can type "crash" to dump the state machine's trace
+
+world.build(None,
+    (GO_COMMANDS["n"], "deep_woods", lookAction),
+    (GO_COMMANDS["s"], "deep_woods", lookAction),
+    (GO_COMMANDS["e"],  "deep_woods", lookAction),
+    (GO_COMMANDS["w"],  "deep_woods", lookAction),
+)
+world.add(None, sm.inTest(["xyzzy", "locus amoenus",]), "clearing", lookAction, tag="Look")
+world.add(None, lambda i,_: i != "crash", None, sorryAction, tag="Not crash")  # You can type "crash" to dump the state machine's trace
 #####
 
 
 ###  Main  ###
 import sys
 print("Cabin in the Woods", flush=True)
-# m = Map(GRID_MAP)
-# pprint(m.rooms)
-# sys.exit()
-
 time.sleep(0.1)  # HACK: wait for flush; sometimes prompt prints out-of-order with print output in spite of flush=True
 print(world.input(input("Press enter to start. ")), flush=True)
 while True:
@@ -226,42 +229,4 @@ while True:
     out = world.input(input("> "))
     if out:
         print(out, flush=True)
-#####
-
-
-###  ToDo  ###
-"""
-- Devise map "language"
-    - DONE: "rooms" are labeled with `\[\w+\]`
-        - DONE: immediately adjacent rooms connect by default
-        - DONE: "Key" to define short names for rooms per-mapstring
-    - DONE: symbols for horizontal and vertical passages
-        - DONE: allow vertical or horizontal passages to cross each other, but they only connect at "rooms"
-        - DONE: may need to distinguish between horizontal (`[-+]`) and vertical (`[|+]`) passages
-    - DONE: comments - simply ignore non-room / non-passage chars
-    - DONE: symbols for "warp to"? - allowing repeated room names could enable "warp"
-    - DONE: multiple map sections? - parsing multiple map strings with names in common could enable "stitching"
-    - PUNT: up/down passages? - use comments and manual rules for advanced things to start
-    - PUNT: map namespaces?
-- map parsing
-    - DONE: split lines
-    - PUNT: strip #-comments
-    - PUNT: simplify logic by regularizing the board?
-        - square up lines
-        - wrap each line in null-passages on both ends
-        - add top and bottom null-passage lines
-    - DONE: find each room on a line and:
-        - PUNT: (maybe not?) error if room was seen elsewhere on the map
-        - DONE: back-connect (bi-directional) if `previous_room` and unbroken line of passage chars
-        - DONE: set as `previous_room`
-        - DONE: also examine above, follow vertical passage to prior room
-
-- compile room dict to sm rules
-
-- maybe "map linter"?
-    - warn if any rooms end up with redundant rules?
-
-Doneyard:
-
-"""
 #####
