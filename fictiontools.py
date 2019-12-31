@@ -31,6 +31,7 @@ class Map:
         if map_str:
             self.parse(map_str)
 
+
     def parse(self, map_str):
         map_lines = []
         map_tokens = []
@@ -111,16 +112,23 @@ class Map:
                 if token.group("room"):
                     room = room_name(token)
                     if prev_room:
-                        self.rooms[room]["w"] = prev_room
-                        self.rooms[prev_room]["e"] = room
+                        self.connect(prev_room, room, "e", "w")
                     prev_room = room
                     north_room = vertical_search(i, token.span())
                     if north_room:
-                        self.rooms[room]["n"] = north_room
-                        self.rooms[north_room]["s"] = room
+                        self.connect(room, north_room, "n", "s")
 
                 # "passage" tokens don't need anything done
                 prev_end = token.end()
+
+
+    def connect(self, rm1, rm2, d1, d2=None):
+        if d1 in self.rooms[rm1]:
+            raise KeyError(f"{rm1} already has a '{d1}' connection")
+
+        self.rooms[rm1][d1] = rm2
+        if d2:
+            self.connect(rm2, rm1, d2)
 
 
     def build(self, sm, commands, action, state_mapper=lambda r: r):
@@ -136,13 +144,13 @@ if __name__ == "__main__":
     # import sys
     import time
     GRID_MAP = """
-[00]-01--[02][03][04]
- |        |       |
-[05][06]--+--[08][09]
-[10][11][12] [13][14]
- |        |
-[15][16] [17][18][19]
-"""
+    [00]-01--[02][03][04]
+     |        |       |
+    [05][06]--+--[08][09]
+    [10][11][12] [13][14]
+     |        |
+    [15][16] [17][18][19]
+    """
     # TODO: eventually want a command class with "standard" name, synonyms, help, action, etc.  Help action can find command-based rules for the current state and print help
     GO_COMMANDS = {
         "n": sm.inTest(["n", "north"]),
@@ -163,11 +171,9 @@ if __name__ == "__main__":
     # world = StateMachine("start", tracer=Tracer(printer=lambda s: print(f"T: {s}")))  # Complete tracer with prefix
 
     world.add(state="start", test=sm.trueTest, dst="01", action=lookAction, tag="Start")
-    world.build("01",
-        (GO_COMMANDS["e"], "02", lookAction),
-        (GO_COMMANDS["w"], "00", lookAction),
-    )
     m = Map(GRID_MAP)
+    m.connect("01", "00", "w")
+    m.connect("01", "02", "e")
     m.build(world, GO_COMMANDS, lookAction)
 
     world.add(None, sm.inTest(["l", "look",]), None, lookAction, tag="Look")
