@@ -122,13 +122,15 @@ class Map:
                 prev_end = token.end()
 
 
-    def connect(self, rm1, rm2, d1, d2=None):
+    def connect(self, rm1, rm2, d1, d2=None, lenient=False):
         if d1 in self.rooms[rm1]:
+            if lenient:
+                return
             raise KeyError(f"{rm1} already has a '{d1}' connection")
 
         self.rooms[rm1][d1] = rm2
         if d2:
-            self.connect(rm2, rm1, d2)
+            self.connect(rm2, rm1, d2, lenient=lenient)
 
 
     def build(self, sm, commands, action, state_mapper=lambda r: r):
@@ -136,6 +138,43 @@ class Map:
             directions = self.rooms[room]
             rules = [ (commands[d], state_mapper(r), action) for d,r in directions.items() ]
             sm.build(state_mapper(room), *rules)
+#####
+
+
+###  Commands  ###
+class Command:
+    def __init__(self, test, *syns, action=None, help=None):
+        if callable(test):
+            self.test = test
+            self._syns = syns  # when using a custom callable test, syns are still useful for help
+        else:
+            self.test = sm.inTest([test, *syns])
+            self._syns = [test, *syns]
+
+        self.action = action
+        self._help = help
+
+
+    def __call__(self, i, t):
+        return self.test(i, t)
+
+
+    def help(self):
+        if not self._help:
+            return None
+        if self._syns:
+            return f"{', '.join(self._syns)}:\t{self._help}"
+        return self._help
+
+
+    def add_help(sm):
+        def helper(*_):
+            rules = sm.rules.get(sm.state, []) + sm.rules.get(None, [])
+            cmds = ( r for r,*_ in rules if isinstance(r, Command) )
+            helps = ( c.help() for c in cmds )
+            return "\n".join(h for h in helps if h)
+        help_cmd = Command("help", "h", action=helper, help="Print help for available commands (except hidden ones!)")
+        sm.add(None, help_cmd, None, help_cmd.action, "Help")
 #####
 
 
@@ -152,33 +191,37 @@ if __name__ == "__main__":
     [15][16] [17][18][19]
     """
     # TODO: eventually want a command class with "standard" name, synonyms, help, action, etc.  Help action can find command-based rules for the current state and print help
-    GO_COMMANDS = {
-        "n": sm.inTest(["n", "north"]),
-        "s": sm.inTest(["s", "south"]),
-        "e": sm.inTest(["e", "east"]),
-        "w": sm.inTest(["w", "west"]),
+    GO_COMMANDS = {  # Note: action is added by the map builder
+        "n": Command("north", "n", help="Go north"),
+        "s": Command("south", "s", help="Go south"),
+        "e": Command("east", "e", help="Go east"),
+        "w": Command("west", "w", help="Go west"),
+        "u": Command("up", "u", help="Go up"),
+        "d": Command("down", "d", help="Go down"),
     }
 
-    def lookAction(i, t):
+    def look_action(i, t):
         s = t.dst if t.dst is not None else t.state
         return s
         # return adlib(messages.get(s, s))
+    look_cmd = Command("look", "l", action=look_action, help="Print a description of your surroundings")
 
-    sorryAction = "Sorry, you can't do that."
+    sorry_action = "Sorry, you can't do that."
 
     world = sm.StateMachine("start")
     # world = StateMachine("start", tracer=20)  # Keep a deeper trace, -1 for unlimited
     # world = StateMachine("start", tracer=Tracer(printer=lambda s: print(f"T: {s}")))  # Complete tracer with prefix
 
-    world.add(state="start", test=sm.trueTest, dst="01", action=lookAction, tag="Start")
+    world.add(state="start", test=sm.trueTest, dst="01", action=look_action, tag="Start")
     m = Map(GRID_MAP)
     m.connect("01", "00", "w")
     m.connect("01", "02", "e")
-    m.build(world, GO_COMMANDS, lookAction)
+    m.build(world, GO_COMMANDS, look_action)
 
-    world.add(None, sm.inTest(["l", "look",]), None, lookAction, tag="Look")
-    world.add(None, "xyzzy", "01", lookAction, tag="Look")
-    world.add(None, lambda i,_: i != "crash", None, sorryAction, tag="Not crash")  # You can type "crash" to dump the state machine's trace
+    world.add(None, look_cmd, None, look_cmd.action, tag="Look")
+    world.add(None, "xyzzy", "01", look_action, tag="Magic")
+    Command.add_help(world)
+    world.add(None, lambda i,_: i != "crash", None, sorry_action, tag="Not crash")  # You can type "crash" to dump the state machine's trace
 
     print("Grid World", flush=True)
     time.sleep(0.1)  # HACK: wait for flush; sometimes prompt prints out-of-order with print output in spite of flush=True

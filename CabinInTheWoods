@@ -15,9 +15,9 @@ import statemachine as sm
 
 ###  Fixtures  ###
 CABIN_MAP = """
-            x       x cabin x
-        x[pool]-cl x[br]-[lr]x cl-[cabin_e]-
-D    |      |        x    |        |
+            x        cabin
+        x[pool]-cl  [br]-[lr]  cl-[cabin_e]-
+D    |      |             |        |
 e---[s_w][stream]---[clearing]--[c_e]------
 e--[s_sw][stream_s][clearing_s]--[c_se]----
 p    |      |            |         |
@@ -35,57 +35,53 @@ messages = {
 
 
 ###  Actions  ###
-GO_COMMANDS = {
-    "n": sm.inTest(["n", "north"]),
-    "s": sm.inTest(["s", "south"]),
-    "e": sm.inTest(["e", "east"]),
-    "w": sm.inTest(["w", "west"]),
+GO_COMMANDS = {  # Note: action is added by the map builder
+    "n": ft.Command("north", "n", help="Go north"),
+    "s": ft.Command("south", "s", help="Go south"),
+    "e": ft.Command("east", "e", help="Go east"),
+    "w": ft.Command("west", "w", help="Go west"),
+    "u": ft.Command("up", "u", help="Go up"),
+    "d": ft.Command("down", "d", help="Go down"),
 }
 
-def lookAction(i, t):
+def look_action(i, t):
     s = t.dst if t.dst is not None else t.state
     return ft.adlib(messages.get(s, s))
 
-sorryAction = "Sorry, you can't do that."
+look_cmd = ft.Command("look", "l", action=look_action, help="Print a description of your surroundings")
+
+sorry_action = "Sorry, you can't do that."
 #####
 
 
 ###  World  ###
 world = sm.StateMachine("start")
-world.add(state="start", test=sm.trueTest, dst="clearing", action=lookAction, tag="Start")
+world.add(state="start", test=sm.trueTest, dst="clearing", action=look_action, tag="Start")
 m = ft.Map(CABIN_MAP)
-world.build("pool",
-    (GO_COMMANDS["e"], "clearing", lookAction),
-    (GO_COMMANDS["w"], None, sorryAction),
-    (GO_COMMANDS["n"], None, sorryAction),
+m.connect("pool", "clearing", "e")
+m.connect("cabin_e", "clearing", "w")
+border_rooms = (
+    "stream_w", "stream_sw", "stream_s",
+    "clearing_s", "clearing_se", "clearing_e",
+    "cabin_e",
 )
-world.build("bed_room",
-    (GO_COMMANDS["w"], None, sorryAction),
-    (GO_COMMANDS["n"], None, sorryAction),
-    (GO_COMMANDS["s"], None, sorryAction),
+for r,d in ( (r,d) for r in border_rooms for d in "nsew" ):
+    m.connect(r, "deep_woods", d, lenient=True)
+
+m.build(world, GO_COMMANDS, look_action)
+
+world.add(None, look_cmd, None, look_action, tag="Look")
+
+world.build("deep_woods",
+    (GO_COMMANDS["n"], None, look_action),
+    (GO_COMMANDS["s"], None, look_action),
+    (GO_COMMANDS["e"],  None, look_action),
+    (GO_COMMANDS["w"],  None, look_action),
 )
-world.build("living_room",
-    (GO_COMMANDS["e"], None, sorryAction),
-    (GO_COMMANDS["n"], None, sorryAction),
-)
-world.add("cabin_e", GO_COMMANDS["w"], "clearing", lookAction)
-
-# world.add(state="start", test=sm.trueTest, dst="00", action=lookAction, tag="Start")
-# m = Map(GRID_MAP)
-
-m.build(world, GO_COMMANDS, lookAction)
-
-world.add(None, sm.inTest(["l", "look",]), None, lookAction, tag="Look")
-
-world.build(None,
-    (GO_COMMANDS["n"], "deep_woods", lookAction),
-    (GO_COMMANDS["s"], "deep_woods", lookAction),
-    (GO_COMMANDS["e"],  "deep_woods", lookAction),
-    (GO_COMMANDS["w"],  "deep_woods", lookAction),
-)
-world.add(None, sm.inTest(["xyzzy", "locus amoenus",]), "clearing", lookAction, tag="Look")
+world.add(None, sm.inTest(["xyzzy", "locus amoenus",]), "clearing", look_action, tag="Magic")
+ft.Command.add_help(world)
 # world.add(None, lambda i,_: i != "crash", None, sorryAction, tag="Not crash")  # You can type "crash" to dump the state machine's trace
-world.add(None, sm.trueTest, None, sorryAction, tag="Sorry")
+world.add(None, sm.trueTest, None, sorry_action, tag="Sorry")
 #####
 
 

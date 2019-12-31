@@ -8,12 +8,42 @@ SmoothSailing
 Simple game that directly builds a tiny world of states and actions
 
 
-MapWorld
---------
+CabinInTheWoods
+---------------
+More advanced game that uses [`fictiontools.py`](fictiontools.py) to build a more playable world
+
+
+Fiction Tools
+-------------
+A library of tools to help with writing interactive fiction adventure games
+
 ### To Do:
 
-- maybe "map linter"?
-    - warn if any rooms end up with redundant rules?
+- DONE: maybe "map linter"?
+    - DONE: `raise` if any rooms try to set redundant connections
+
+- DONE: `connect` method to make it easier to make one-off connections easily
+- DONE: `up` and `down` directions for use with `connect`
+    - intercardinal directions, too?
+    - hoist `go_commands` into ft?
+    - more specialized `go` command?
+    - `exits` command?
+
+- DONE: general-purpose `help` command
+    - DONE: `command` class to support `help` command
+
+- `room` class?
+
+- inventory system
+    - mix-in?
+    - player inventory
+    - room inventory
+
+- general-purpose repl
+    - mechanism for quitting
+    - automatically add `help` and `quit`
+
+- Docs, sooo many docs...
 
 #### Doneyard:
 
