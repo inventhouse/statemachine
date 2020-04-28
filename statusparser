@@ -11,7 +11,7 @@ import statemachine as sm
 
 
 ###  Main  ###
-def main(args, env, inFile):
+def main(args, env, in_file):
     name = args[1] if len(args) >= 2 else "bholt"
 
     parser = sm.StateMachine("top", tracer=-1)
@@ -19,66 +19,66 @@ def main(args, env, inFile):
     # parser = sm.StateMachine("top", tracer=sm.Tracer(printer=lambda s: print(f"T: {s}")))
     # parser = sm.StateMachine("top", tracer=2)
 
-    myUser = f"@{name}"
-    myStatus = (sm.trueTest, None, lambda i,_: f"> {i}")
-    otherUser = sm.matchTest(r"^@\w+$")
+    my_user = f"@{name}"
+    my_status = (sm.true_test, None, lambda i,_: f"> {i}")
+    other_user = sm.match_test(r"^@\w+$")
 
-    startYesterday = {
+    start_yesterday = {
         "test": "1. What did you do yesterday?", 
         "dst": "yesterday", 
         "action": "_Yesterday:_",
     }
-    startToday = {
+    start_today = {
         "test": "2. What do you commit to today?", 
         "dst": "today", 
         "action": "_Today:_",
     }
-    startHowFar = {
+    start_how_far = {
         "test": "3. How far along are you? Do you think you'll finish soon?", 
         "dst": "top", 
     }
 
     parser.build(
         "top",
-        startYesterday,
-        startToday,
-        ((sm.trueTest, None), {"tag":"Other line"}),
+        start_yesterday,
+        start_today,
+        ((sm.true_test, None), {"tag":"Other line"}),
     )
 
     parser.build(
         "yesterday",
-        startToday,
-        (myUser, "myYesterday"),
-        ((sm.trueTest, None), {"tag":"Other line"}),
+        start_today,
+        (my_user, "myYesterday"),
+        ((sm.true_test, None), {"tag":"Other line"}),
     )
 
     parser.build(
         "myYesterday",
-        startToday,
-        (otherUser, "yesterday"),
-        myStatus,
+        start_today,
+        (other_user, "yesterday"),
+        my_status,
     )
 
     parser.build(
         "today",
-        startHowFar,
-        (myUser, "myToday"),
-        ((sm.trueTest, None), {"tag":"Other line"}),
+        start_how_far,
+        (my_user, "myToday"),
+        ((sm.true_test, None), {"tag":"Other line"}),
     )
 
     parser.build(
         "myToday",
-        startHowFar,
-        (otherUser, "today"),
-        myStatus,
+        start_how_far,
+        (other_user, "today"),
+        my_status,
     )
  
     status = ["*Check-in*",]
-    for out in parser.parse(( l.rstrip() for l in inFile )):
+    for out in parser.parse(( l.rstrip() for l in in_file )):
         status.append(out)
 
     print("\n".join(status))
-    # print("\n".join(parser.tracer.formatTrace()))
+    # print("\n".join(parser.tracer.format_trace()))
 #####
 
 

@@ -38,16 +38,16 @@ messages = {
 
 
 ###  Actions  ###
-def lookAction(i, t):
+def look_action(i, t):
     s = t.dst if t.dst is not None else t.state
     return adlib(messages[s])
 
-def sailAction(i, t):
+def sail_action(i, t):
     s = input("Where to? > ")
     return adlib(messages["sail"]).format(s)
 
 log_entries = [(["Fair", "Nice", "Brisk",], " weather."),]  # Put one bogus entry in 'cos choose can't take an empty array
-def writeAction(*_):
+def write_action(*_):
     s = input("What do you want to say? > ")
     log_entries.append(s)
     return "Written"
@@ -58,26 +58,26 @@ def writeAction(*_):
 world = sm.StateMachine("start")
 # world = StateMachine("start", tracer=20)  # Keep a deeper trace, -1 for unlimited
 # world = StateMachine("start", tracer=Tracer(printer=lambda s: print(f"T: {s}")))  # Complete tracer with prefix
-world.add(state="start", test=sm.trueTest, dst=above, action=lookAction, tag="Start")
-world.add(above, sm.inTest(["d", "down", "below",]), below, lookAction, tag="Go below")
-world.add(above, sm.inTest(["s", "sail",]), None, sailAction, tag="Sail")
+world.add(state="start", test=sm.true_test, dst=above, action=look_action, tag="Start")
+world.add(above, sm.in_test(["d", "down", "below",]), below, look_action, tag="Go below")
+world.add(above, sm.in_test(["s", "sail",]), None, sail_action, tag="Sail")
 
 world.build(
     below,
     # Try all the different ways `build` lets us specify transitions
-    (sm.inTest(["u", "up", "above",]), above, lookAction, "Go above"),
-    ((sm.inTest(["r", "read", "read logbook",]), None), 
+    (sm.in_test(["u", "up", "above",]), above, look_action, "Go above"),
+    ((sm.in_test(["r", "read", "read logbook",]), None), 
         {"action": lambda *_: adlib([messages["log"], log_entries]), "tag": "Read"}),
-    ((sm.inTest(["w", "write", "log",]), None, writeAction), {"tag": "Write"}),
+    ((sm.in_test(["w", "write", "log",]), None, write_action), {"tag": "Write"}),
     {
-        "test": sm.inTest(["s", "sleep", "bunk", "lie down", "lay down", "nap",]), 
+        "test": sm.in_test(["s", "sleep", "bunk", "lie down", "lay down", "nap",]), 
         "dst": None, 
         "action": lambda *_: adlib(messages["sleep"]), 
         "tag": "Sleep",
     }
 )
 
-world.add(None, sm.inTest(["l", "look",]), None, lookAction, tag="Look")
+world.add(None, sm.in_test(["l", "look",]), None, look_action, tag="Look")
 world.add(None, lambda i,_: i != "crash", None, "Sorry, you can't do that.", tag="Not crash")  # You can type "crash" to dump the state machine's trace
 #####
 

@@ -151,19 +151,19 @@ class StateMachine(StateMachineCore):
 
 
 ###  Tests  ###
-def trueTest(i, _):
+def true_test(i, _):
     "Always returns `True`"
     return True
 
 
-def inTest(l):
+def in_test(l):
     "Creates a test closure that returns true if an input is in `l`"
     def c(i, _):
         return i in l
     return c
 
 
-def anyTest(l):
+def any_test(l):
     "Creates a test closure that returns the first truish result of the tests in `l`"
     def c(i, t):
         for test in l:
@@ -174,7 +174,7 @@ def anyTest(l):
     return c
 
 
-def matchTest(pattern, flags=0):
+def match_test(pattern, flags=0):
     "Creates a test closure that returns true if an input matches `pattern` using `re.match`"
     r = re.compile(pattern, flags=flags)
     def c(i, _):
@@ -184,7 +184,7 @@ def matchTest(pattern, flags=0):
 
 
 ###  Actions  ###
-def inputAction(i, _):
+def input_action(i, _):
     """Returns the input that matched the transition"""
     return i
 #####
@@ -264,12 +264,12 @@ class RecentTracer(object):
 
     def throw(self, i, s, c):
         """Raises a `ValueError` for an unrecognized input to a `StateMachine` with a trace of that machine's recent significant transitions."""
-        traceLines = "\n".join(self.formatTrace())
-        msg = f"Unrecognized input\nStateMachine Traceback (most recent transition last):\n{traceLines}\nValueError: '{s}' did not recognize {c}: '{i}'"
+        trace_lines = "\n".join(self.format_trace())
+        msg = f"Unrecognized input\nStateMachine Traceback (most recent transition last):\n{trace_lines}\nValueError: '{s}' did not recognize {c}: '{i}'"
         raise ValueError(msg)
 
 
-    def formatTrace(self):
+    def format_trace(self):
         """Formats the recent significant transitions into a list of lines for output."""
         trace = []
         for (ti, (t_info, test, action, tag, out, end), (lc, tc)) in self.buffer:  # FIXME: this kind of unpacking is out of control
@@ -312,21 +312,21 @@ class StackMachine(StateMachine):
         return self.stacks[stack].pop()
 
 
-    def appendInputAction(self, stack=None):
+    def append_input_action(self, stack=None):
         def action(i, t_info):
             self.append(i, stack=stack)
             return None
         return action
 
 
-    def appendResultAction(self, stack=None):
+    def append_result_action(self, stack=None):
         def action(i, t_info):
             self.append(t_info.result, stack=stack)
             return None
         return action
 
 
-    def popAction(self, stack=None):
+    def pop_action(self, stack=None):
         def action(i, t_info):
             return self.pop(stack=stack)
         return action
@@ -336,14 +336,14 @@ class StackMachine(StateMachine):
         pass
 
 
-    def appendStateAction(self, stack=StateStack):  # Use separate "state" stack by default instead of the None ("data") stack
+    def append_state_action(self, stack=StateStack):  # Use separate "state" stack by default instead of the None ("data") stack
         def action(i, t_info):
             self.append(t_info.state, stack=stack)
             return None
         return action
 
 
-    def popStateAction(self, stack=StateStack):
+    def pop_state_action(self, stack=StateStack):
         def action(i, t_info):
             self.state = self.pop(stack=stack)
             return None  # Only set the state, no output

@@ -72,7 +72,7 @@ def main(args, env, stdin):
     arg_parser.add_argument(
         "-c", "--strip-comments",
         action="store_true",
-        # const=(None, sm.trueTest, None, None, "StripComments"),
+        # const=(None, sm.true_test, None, None, "StripComments"),
         # default=None,
         help="Add a StripComments rule to scrub #-style comments; must be explicitly added to states to raise its priority."
     )
@@ -80,7 +80,7 @@ def main(args, env, stdin):
         "-d", "--drop-all",
         dest="default_rule",
         action="store_const",
-        const=(None, sm.trueTest, None, None, "DropAll"),
+        const=(None, sm.true_test, None, None, "DropAll"),
         default=None,
         help="Add a final DropAll rule to drop any input not handled."
     )
@@ -88,7 +88,7 @@ def main(args, env, stdin):
         "-p", "--pass-all",
         dest="default_rule",
         action="store_const",
-        const=(None, sm.trueTest, None, sm.inputAction, "PassAll"),
+        const=(None, sm.true_test, None, sm.input_action, "PassAll"),
         default=None,
         help="Add a final PassAll rule to pass any input not handled."
     )
@@ -131,7 +131,7 @@ def main(args, env, stdin):
         (named_lines, add_lines) = rules_from_file(my_args.rules_file)
 
     if my_args.strip_comments:
-        named_rules["StripComments"] = (sm.trueTest, None, strip_comments_action, None)
+        named_rules["StripComments"] = (sm.true_test, None, strip_comments_action, None)
         add_lines.append("::StripComments")
 
     named_rules.update({ n: r for n,*r in parse_rules(named_lines) })
@@ -223,7 +223,7 @@ class Tests:
     "Tests"
     def t(_):
         ":T::\talways True"
-        return sm.trueTest
+        return sm.true_test
 
     def l(s):
         ":L:s:\tLiteral string, no string matches empty line"
@@ -232,11 +232,11 @@ class Tests:
 
     def m(s):
         ":M:p:\tMatch a regex pattern"
-        return sm.matchTest(s)
+        return sm.match_test(s)
 
     def mi(s):
         ":MI:p:\tMatch a regex pattern, ignoring case"
-        return sm.matchTest(s, flags=re.IGNORECASE)
+        return sm.match_test(s, flags=re.IGNORECASE)
 
     def s(s):
         ":S:p:\tSearch for a regex pattern"
@@ -280,7 +280,7 @@ class Actions:
 
     def i(_):
         ":I::\treturn the Input"
-        return sm.inputAction
+        return sm.input_action
 
     def l(s):
         ":L:s:\tLiteral string"
@@ -322,15 +322,15 @@ def rules_from_file(rules_file):
     def add(i,t):
         add_lines.append(i)
     named_section = (
-        sm.matchTest(r"Named\s*Rules\s*:*", flags=re.IGNORECASE),
+        sm.match_test(r"Named\s*Rules\s*:*", flags=re.IGNORECASE),
         "named", None, "NamedSection"
     )
     add_section = (
-        sm.matchTest(r"Add\s*Rules\s*:*", flags=re.IGNORECASE),
+        sm.match_test(r"Add\s*Rules\s*:*", flags=re.IGNORECASE),
         "add", None, "AddSection"
     )
     end_section = (
-        sm.matchTest(r"End\s*Rules\s*:*", flags=re.IGNORECASE),
+        sm.match_test(r"End\s*Rules\s*:*", flags=re.IGNORECASE),
         "start", None, "EndSection"
     )
 
@@ -342,21 +342,21 @@ def rules_from_file(rules_file):
         add_section,
         named_section,
         end_section,
-        (sm.trueTest, None, named, "Named")
+        (sm.true_test, None, named, "Named")
     )
     categorizer.build(
         "add",
         add_section,
         named_section,
         end_section,
-        (sm.trueTest, None, add, "Add")
+        (sm.true_test, None, add, "Add")
     )
     categorizer.build(
         None,
         add_section,
         named_section,
         end_section,
-        (sm.trueTest, None, None, "Drop")
+        (sm.true_test, None, None, "Drop")
     )
     # print(categorizer.rules)
 
@@ -409,7 +409,7 @@ def tput_lookup(*cap):
         r = result.stdout.decode("utf-8")
         if r:
             try:
-                r = int(r)  # Note: many of the int
+                r = int(r)  # Note: many of the int results may change (like cols)
             except ValueError:
                 pass  # Nope, not an int
         else:
