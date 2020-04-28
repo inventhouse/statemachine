@@ -19,7 +19,14 @@ A library of tools to help with writing interactive fiction adventure games
 
 ### To Do:
 
-- DONE: maybe "map linter"?
+- obfuscated maps
+    - tool to encrypt and decrypt the map strings
+- helper methods for reading map strings from files
+- map-to-rules "compiler"
+    - output rooms dict as [json?, yaml?, pickle?, ??] to import and build
+    - maybe custom csv or similar, to allow building line-by-line without reading the whole thing into memory
+
+- PUNT: maybe "map linter"?
     - DONE: `raise` if any rooms try to set redundant connections
 
 - DONE: `connect` method to make it easier to make one-off connections easily

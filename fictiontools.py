@@ -14,13 +14,21 @@ import statemachine as sm
 
 
 ###  Helpers  ###
-def adlib(x):
+def adlib(x, joiner=" "):
     "Dynamically assemble messages from nested collections of parts.  Tuples are pieces to be strung together, lists are variants to choose among; anything else is used as a string"
     if type(x) is tuple:
-        return "".join([ adlib(i) for i in x ])  # Joining with "|" can be helpful to see how messages get put together
+        return joiner.join([ adlib(i) for i in x ])  # Joining with "|" can be helpful to see how messages get put together
     if type(x) is list:
         return adlib(random.choice(x))
     return str(x)
+
+
+WORD_SPACE_RE = re.compile(r"(\S)\s+(\S)")
+PUNCT_SPACE_RE = re.compile(r"([?!.])\s+(\S)")
+def message_spacer(m):
+    m = WORD_SPACE_RE.sub(r"\1 \2", m)
+    m = PUNCT_SPACE_RE.sub(r"\1  \2", m)
+    return m
 #####
 
 
@@ -125,7 +133,7 @@ class Map:
     def connect(self, rm1, rm2, d1, d2=None, lenient=False):
         if d1 in self.rooms[rm1]:
             if lenient:
-                return
+                return  # FIXME: never connects d2 here
             raise KeyError(f"{rm1} already has a '{d1}' connection")
 
         self.rooms[rm1][d1] = rm2
@@ -133,11 +141,11 @@ class Map:
             self.connect(rm2, rm1, d2, lenient=lenient)
 
 
-    def build(self, sm, commands, action, state_mapper=lambda r: r):
+    def build(self, world, commands, action, state_mapper=lambda r: r):
         for room in self.rooms.keys():
             directions = self.rooms[room]
             rules = [ (commands[d], state_mapper(r), action) for d,r in directions.items() ]
-            sm.build(state_mapper(room), *rules)
+            world.build(state_mapper(room), *rules)
 #####
 
 
@@ -175,6 +183,18 @@ class Command:
             return "\n".join(h for h in helps if h)
         help_cmd = Command("help", "h", action=helper, help="Print help for available commands (except hidden ones!)")
         sm.add(None, help_cmd, None, help_cmd.action, "Help")
+#####
+
+
+###  REPL  ###
+def repl(world)
+    time.sleep(0.1)  # HACK: wait for flush; sometimes prompt prints out-of-order with print output in spite of flush=True
+    print(world.input(input("Press enter to start. ")), flush=True)
+    while True:
+        time.sleep(0.1)  # HACK: wait for flush
+        out = world.input(input("> "))
+        if out:
+            print(out, flush=True)
 #####
 
 
