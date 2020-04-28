@@ -66,11 +66,11 @@ world.build(
     below,
     # Try all the different ways `build` lets us specify transitions
     (sm.in_test(["u", "up", "above",]), above, look_action, "Go above"),
-    ((sm.in_test(["r", "read", "read logbook",]), None), 
+    ((sm.in_test(["r", "read", "read logbook",]), None),
         {"action": lambda *_: adlib([messages["log"], log_entries]), "tag": "Read"}),
     ((sm.in_test(["w", "write", "log",]), None, write_action), {"tag": "Write"}),
     {
-        "test": sm.in_test(["s", "sleep", "bunk", "lie down", "lay down", "nap",]), 
+        "test": sm.in_test(["s", "sleep", "bunk", "lie down", "lay down", "nap",]),
         "dst": None, 
         "action": lambda *_: adlib(messages["sleep"]), 
         "tag": "Sleep",
