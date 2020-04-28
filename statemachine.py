@@ -200,12 +200,16 @@ def format_rule_table(sm):
 ###  Tracing  ###
 class Tracer():
     """Collects a trace of state machine transitions (or not) by input."""
-    def __init__(self, printer=print):
+    def __init__(self, printer="T> "):
         """Creates a Tracer instance with a `printer` callback for lines of trace output.
 
-        The instance is callable and can be used directly as the `tracer` callback of a `StateMachine`.  The `printer` is expected to add newlines or otherwise separate each line output; a prefix can be added to each line like this: `printer=lambda s: print(f"T: {s}")`"""
+        The instance is callable and can be used directly as the `tracer` callback of a `StateMachine`.  The `printer` is expected to add newlines or otherwise separate each line output; if `printer` is not callable, it will be used as a prefix for trace lines.
+        """
         self.input_count = 0
-        self.printer = printer
+        if callable(printer):
+            self.printer = printer
+        else:
+            self.printer = lambda s: print(f"{printer}{s}")
 
 
     def __call__(self, i, t):

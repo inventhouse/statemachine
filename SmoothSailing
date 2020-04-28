@@ -56,8 +56,8 @@ def write_action(*_):
 
 ###  World  ###
 world = sm.StateMachine("start")
-# world = StateMachine("start", tracer=20)  # Keep a deeper trace, -1 for unlimited
-# world = StateMachine("start", tracer=Tracer(printer=lambda s: print(f"T: {s}")))  # Complete tracer with prefix
+# world = sm.StateMachine("start", tracer=20)  # Keep a deeper trace, -1 for unlimited
+# world = sm.StateMachine("start", tracer=sm.Tracer())  # Complete tracer with default prefix
 world.add(state="start", test=sm.true_test, dst=above, action=look_action, tag="Start")
 world.add(above, sm.in_test(["d", "down", "below",]), below, look_action, tag="Go below")
 world.add(above, sm.in_test(["s", "sail",]), None, sail_action, tag="Sail")
