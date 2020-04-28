@@ -160,7 +160,7 @@ def main(args, env, stdin):
             tracer = int(my_args.trace)
         except ValueError:
             # Add additional verbose tracing
-            tracer = sm.Tracer(printer=lambda s: print(f"{my_args.trace}{s}"))
+            tracer = sm.Tracer(printer=my_args.trace)
     parser = sm.StateMachine(my_args.start, tracer=tracer)
     for r in rules:
         parser.add(*r)
