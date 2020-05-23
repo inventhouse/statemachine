@@ -207,8 +207,19 @@ To Do
     - or maybe general substitution macros?
         - NO: will this be weird different delimiters? - nah, just parse the macro with its delimiter, then expand it in the parsed rule list with its already-split fields
         - just like named rules: delim-name-delim-field...
+            - should named rules just be an instance of this? what to do about auto-tagging?
         - multiple expansion? - powerful but fraught with peril ...but _powerful_
             - ...but _perilous_ - what safeguards can be put in place?
+            - Expansion depth limit
+            - Expand only based on previously-defined expansions - expansions with undefined names are discarded?
+                - need verbose logging to see cases of this for debugging? or just use --print-args and see that things got lost?  or they get squirreled away and the ones that never get expanded are printed separately? - yeah, that one
+            - need a way to specify "expand this" - $name, $$junk to escape?
+            - expansions only apply in the named-rule parsing, all expanding should be done by the add-rules phase
+        - how to handle overriding named rules on the command-line - may want to override fundamental aliases like a test regex _or_ override "later" rules that use test regex defined in the file
+            - parse command-line named rules once building a dictionary of any that don't depend on things not-yet-defined
+            - parse file rules treating existing dictionary as canon but _not_ overriding anything already defined
+            - parse command-line rules _again_ using expansions from existing dictionary, but _override_ existing dictionary items - rules that were defined in the first phase should override to themselves, rules that couldn't be expanded the first time around should now expand and override the file version
+            - _phew!_
 - good way to allow multiple actions to apply to a line
     - could allow one to just keep piling them on?
 
