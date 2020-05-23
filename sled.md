@@ -217,8 +217,9 @@ To Do
             - expansions only apply in the named-rule parsing, all expanding should be done by the add-rules phase
         - how to handle overriding named rules on the command-line - may want to override fundamental aliases like a test regex _or_ override "later" rules that use test regex defined in the file
             - parse command-line named rules once building a dictionary of any that don't depend on things not-yet-defined
-            - parse file rules treating existing dictionary as canon but _not_ overriding anything already defined
+            - parse file rules treating existing dictionary as canon, _not_ overriding anything already defined
             - parse command-line rules _again_ using expansions from existing dictionary, but _override_ existing dictionary items - rules that were defined in the first phase should override to themselves, rules that couldn't be expanded the first time around should now expand and override the file version
+            - track rules whose definition failed due to missing expansions, minus ones that were eventually defined, print in print-args; if non-empty, maybe print warning?
             - _phew!_
 - good way to allow multiple actions to apply to a line
     - could allow one to just keep piling them on?
