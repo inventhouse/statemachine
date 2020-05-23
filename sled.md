@@ -213,7 +213,7 @@ To Do
             - Expansion depth limit
             - Expand only based on previously-defined expansions - expansions with undefined names are discarded?
                 - need verbose logging to see cases of this for debugging? or just use --print-args and see that things got lost?  or they get squirreled away and the ones that never get expanded are printed separately? - yeah, that one
-            - need a way to specify "expand this" - $name, $$junk to escape?
+            - need a way to specify "expand this" - $name, $$junk to escape?  - have to apply escape at rule-add time
             - expansions only apply in the named-rule parsing, all expanding should be done by the add-rules phase
         - how to handle overriding named rules on the command-line - may want to override fundamental aliases like a test regex _or_ override "later" rules that use test regex defined in the file
             - parse command-line named rules once building a dictionary of any that don't depend on things not-yet-defined
