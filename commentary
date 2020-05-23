@@ -1,0 +1,12 @@
+#!/usr/bin/env sled -f
+
+Commentary uses 'sled' rules to strip comments from input or toggle comment-status on lines with the special marker comment-percent (eg '#%').  Blocks can be stripped with the markers comment-START / comment-END, or toggled with comment-%START / comment-%END; current comment status will be determined by the first line inside the block.
+
+Run as part of a pipeline or use redirects:
+    ...| commentary -s toggle |...
+    commentary < script.lang > cleaned.lang
+
+Note that this has no understanding of any scripting languages, it's just doing line-by-line text processing
+
+
+###

@@ -182,11 +182,17 @@ To Do
 - "intro to statemachines" - maybe as a separate tutorial?  or statemachine.md?
 - pull styling out into its own importable module
 - `--styled` to force styling even when piped
+- styles for all 256 colors (maybe something like fgNNN/bgNNN?) - see http://mywiki.wooledge.org/BashFAQ/037
 
 - change trace to take a format so we can use things like `{s.dim}`
 - wrap `--more-help` - hard to make this right
 
 - generalize comment stripper to take a string like `//`, `;`, or `--`
+- comment stripper / toggle sled program
+    - write up as a more sophisticated example
+    - recommendations for embedding into shell scripts / aliases - use `#!/usr/bin/env sled -f`
+        - validate that that shebang line works on linux (if the `-f` is problematic, could change sled to take the rules file as the first argument and a flag for an input file)
+        - some way for -h to print help from a sled script?
 
 - HTML escaping and styling?
 
@@ -194,9 +200,17 @@ To Do
 
 - Error action?  fire the unrecognized handler deliberately
     - would need a reference to the sm, not sure how to do that right now
+- End action?  cease parsing but exit normally (can fake it with an end state and drop-all rule)  Or could be "accept"
+- "reject" action?  cease parsing and exit non-zero, but don't throw
 
 - named tests & actions?
+    - or maybe general substitution macros?
+        - NO: will this be weird different delimiters? - nah, just parse the macro with its delimiter, then expand it in the parsed rule list with its already-split fields
+        - just like named rules: delim-name-delim-field...
+        - multiple expansion? - powerful but fraught with peril ...but _powerful_
+            - ...but _perilous_ - what safeguards can be put in place?
 - good way to allow multiple actions to apply to a line
+    - could allow one to just keep piling them on?
 
 - NO: fold DSL into main statemachine? - unless I figure a better way to do tests and actions than hardcoded maps, just no.
     - maybe hoist some of the tests or actions, though
