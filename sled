@@ -69,13 +69,6 @@ def main(args, env, stdin):
         metavar="RULE",
         help="Add rules to the statemachine.",
     )
-    # arg_parser.add_argument(
-    #     "-c", "--strip-comments",
-    #     action="store_true",
-    #     # const=(None, sm.true_test, None, None, "StripComments"),
-    #     # default=None,
-    #     help="Add a StripComments rule to scrub #-style comments; must be explicitly added to states to raise its priority."
-    # )
     arg_parser.add_argument(
         "-d", "--drop-all",
         dest="default_rule",
@@ -129,10 +122,6 @@ def main(args, env, stdin):
     add_lines = []
     if my_args.rules_file:
         (named_lines, add_lines) = rules_from_file(my_args.rules_file)
-
-    # if my_args.strip_comments:
-    #     named_rules["$StripComments"] = (sm.true_test, None, strip_comments_action, None)
-    #     add_lines.append("::StripComments")
 
     # First parse command-line to lay down any low-level aliases
     named_rules = parse_aliases(my_args.named_rules)
