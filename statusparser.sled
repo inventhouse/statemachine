@@ -1,6 +1,12 @@
+#!/usr/bin/env sled -f
+
 Parse only my status out of a team standup message.  Clone of `statusparser` using sled rules; compare both implentations, but keep in mind that this one is a bit messy to demonstrate how `sled` parses a rules file.
 
-Run like this:
+Run like this if sled is in the PATH:
+
+> ./statusparser.sled < status.txt
+
+or:
 
 > cat status.txt | ./sled -f statusparser.sled
 

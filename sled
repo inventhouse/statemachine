@@ -137,14 +137,15 @@ def main(args, env, stdin):
     # First parse command-line to lay down any low-level aliases
     named_rules = parse_aliases(my_args.named_rules)
 
-    # Then parse named rules from file
+    # Then parse aliases from file
     aliases = parse_aliases(named_lines, existing=named_rules, override = False)  # Don't override the command-line
     named_rules.update(aliases)
 
-    # Finally override any rules based on the command-line again
+    # Finally override any aliases based on the command-line again
     aliases = parse_aliases(my_args.named_rules, existing=named_rules, override = True)
     named_rules.update(aliases)
 
+    # Parse rules
     rules = parse_rules(my_args.add_rules, aliases=named_rules)  # Added rules in args have higher precedence than rules from the file
     rules.extend(parse_rules(add_lines, aliases=named_rules))
 
