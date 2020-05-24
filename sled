@@ -148,7 +148,10 @@ def main(args, env, stdin):
     if my_args.default_rule:
         rules.append(my_args.default_rule)
 
-    # named_rules, rules, unresolved = fix_prefixes(named_rules, rules)
+    rules = [ 
+        [ f if f is None or not f.startswith("$$") else f[1:] for f in r ] 
+        for r in rules 
+        ]
 
     if my_args.print_args:
         n_str = "\n\t".join(f"{n}: {r}" for n,r in named_rules.items())
@@ -237,9 +240,6 @@ def parse_rules(l, aliases=None):
 
     return rules
 
-
-# def fix_prefixes(aliases, rules):
-#     pass
 
 def resolve_rule(state, test, t_arg, dst, action, a_arg, tag):
     if not test:
