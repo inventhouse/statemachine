@@ -134,21 +134,16 @@ def main(args, env, stdin):
     #     named_rules["$StripComments"] = (sm.true_test, None, strip_comments_action, None)
     #     add_lines.append("::StripComments")
 
-    # named_rules.update({ n: r for n,*r in parse_rules(named_lines) })  # BJH: FIXME: these will become parse_aliases which will return the dicts
-    # named_rules.update({ n: r for n,*r in parse_rules(my_args.named_rules) })  # Named rules in args can override named rules from the file 
-
     # First parse command-line to lay down any low-level aliases
-    (named_rules, unresolved_rules) = parse_aliases(my_args.named_rules)
+    named_rules = parse_aliases(my_args.named_rules)
 
     # Then parse named rules from file
-    (aliases, unresolved) = parse_aliases(named_lines, existing=named_rules, override = False)  # Don't override the command-line
+    aliases = parse_aliases(named_lines, existing=named_rules, override = False)  # Don't override the command-line
     named_rules.update(aliases)
-    unresolved_rules.update(unresolved)
 
     # Finally override any rules based on the command-line again
-    (aliases, unresolved) = parse_aliases(my_args.named_rules, existing=named_rules, override = True)
+    aliases = parse_aliases(my_args.named_rules, existing=named_rules, override = True)
     named_rules.update(aliases)
-    unresolved_rules.update(unresolved)
 
     rules = parse_rules(my_args.add_rules, aliases=named_rules)  # Added rules in args have higher precedence than rules from the file
     rules.extend(parse_rules(add_lines, aliases=named_rules))
@@ -185,10 +180,12 @@ def main(args, env, stdin):
 
 
 ###  Rule Parsing  ###
-def parse_aliases(l, existing={}, override=False):
+def parse_aliases(l, existing=None, override=False):
     "Parse a list of named rule strings into aliases for add-rules"
+    if existing is None:
+        existing = {}  # {"$name": [fields...], ...}
     aliases = {}  # {"$name": [fields...], ...}
-    unresolved = {}  # {"$name": [fields...], ...}
+
     for s in l:
         name,*fields = split_rule(s)
         assert not name.startswith("$"), f"Rule name '{name}' cannot start with $"
@@ -197,42 +194,56 @@ def parse_aliases(l, existing={}, override=False):
         if not override and name in existing:
             continue
 
-        expanded = ( aliases.get(f) or existing.get(f, [f,]) for f in fields )  # try to expand each field into previously defined fields or "expand" into a list contining itself to keep everything on the same level...
-        fields = [ f for e in expanded for f in e ]  #...then flatten back into a list
+        fields = resolve_aliases(fields, aliases, existing)
 
-        if [ f for f in fields if f is not None and f.startswith("$") and not f.startswith("$$") ]:
-            # Stash any aliases that did not completely resolve
-            unresolved[name] = fields
-            continue
+        # if [ f for f in fields if f is not None and f.startswith("$") and not f.startswith("$$") ]:
+        #     # Stash any aliases that did not completely resolve
+        #     unresolved[name] = fields
+        #     continue
 
         aliases[name] = fields
 
-    return (aliases, unresolved)
+    return aliases
 
 
-def parse_rules(l, aliases={}):
+def resolve_aliases(fields, *lookups):
+    def expand(f):
+        for l in lookups:
+            if f in l:
+                return l[f]
+        return [f,]
+
+    expanded = ( expand(f) for f in fields )  # expansion produces list-of-lists
+    return [ f for e in expanded for f in e ]  #...then flatten back into a list
+
+
+def parse_rules(l, aliases=None):
+    if aliases is None:
+        aliases = {}
     rules = []
     for s in l:
-        parts = split_rule(s)
-        if (1 < len(parts) <= 3
-            and parts[1] is not None
-            and parts[1].startswith("$")):
-            # Expand and auto-tag pure-alias rule
-            name = parts[1]
-            assert name in aliases, f"Unresolved alias {name}"
-            tag = name.lstrip("$")
-            if len(parts) == 3 and parts[2] is not None:
-                tag = parts[2]
-            r = ([parts[0], *aliases[name]] + [None,] * 7)[:7]
-            r[-1] = tag
-        else:
-            # Expand literal rule to 7 fields
-            r = (parts + [None,] * 7)[:7]
-        rules.append(resolve_rule(*r))
+        state,*parts = split_rule(s)
+        if len(parts) < 2:  # ensure at least 2 fields
+            parts = [*parts, None, None][:2]
+        tag = None
+        if (len(parts) == 2 and parts[0] is not None and parts[0].startswith("$")):
+            # get auto-tag for pure-alias rule
+            tag = parts[0].lstrip("$")
+            if parts[1] is not None:
+                tag = parts[1]
+                parts[1] = None  # drop the explicit tag for now
+
+        parts = resolve_aliases(parts, aliases)
+        parts = (parts + [None,] * 6)[:6]  # Expand parts to 6 fields
+        if tag is not None:
+            parts[-1] = tag  # apply saved tag
+
+        rules.append(resolve_rule(state, *parts))
+
     return rules
 
 
-def resolve_rule(name, test, t_arg, dst, action, a_arg, tag):
+def resolve_rule(state, test, t_arg, dst, action, a_arg, tag):
     if not test:
         test = "_default"
     l_test = test.lower()
@@ -247,7 +258,7 @@ def resolve_rule(name, test, t_arg, dst, action, a_arg, tag):
         raise KeyError(f"no '{action}' in Actions, run with --more-help for full list")
     action = Actions.__dict__[l_action](a_arg)
 
-    return (name, test, dst, action, tag)
+    return (state, test, dst, action, tag)
 
 
 def split_rule(s):
