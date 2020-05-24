@@ -19,26 +19,26 @@ Named Rules:
 # These lines would still be parsed, so #-comments are required
 
 Add Rules  # Lenient about the trailing ':'
-    :start:startYesterday
-    :start:startToday
-    :start:DropAll
+    :start:$startYesterday
+    :start:$startToday
+    :start:$DropAll
 
   addrules:  # Lenient about case and whitespace, too
-    :yesterday:startToday
+    :yesterday:$startToday
     :yesterday:M:@bholt:myYesterday
-    :yesterday:DropAll
+    :yesterday:$DropAll
 
-    :myYesterday:startToday
+    :myYesterday:$startToday
     :myYesterday:M:^@\w+$:yesterday
-    :myYesterday:myStatus
+    :myYesterday:$myStatus
 
-    :today:startHowFar
+    :today:$startHowFar
     :today:M:@bholt:myToday
-    :today:DropAll
+    :today:$DropAll
 
-    :myToday:startHowFar
+    :myToday:$startHowFar
     :myToday:M:^@\w+$:today
-    :myToday:myStatus
+    :myToday:$myStatus
 End Rules
 
 -----

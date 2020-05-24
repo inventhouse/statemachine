@@ -69,13 +69,13 @@ def main(args, env, stdin):
         metavar="RULE",
         help="Add rules to the statemachine.",
     )
-    arg_parser.add_argument(
-        "-c", "--strip-comments",
-        action="store_true",
-        # const=(None, sm.true_test, None, None, "StripComments"),
-        # default=None,
-        help="Add a StripComments rule to scrub #-style comments; must be explicitly added to states to raise its priority."
-    )
+    # arg_parser.add_argument(
+    #     "-c", "--strip-comments",
+    #     action="store_true",
+    #     # const=(None, sm.true_test, None, None, "StripComments"),
+    #     # default=None,
+    #     help="Add a StripComments rule to scrub #-style comments; must be explicitly added to states to raise its priority."
+    # )
     arg_parser.add_argument(
         "-d", "--drop-all",
         dest="default_rule",
@@ -123,20 +123,34 @@ def main(args, env, stdin):
     )
     my_args = arg_parser.parse_args(args[1:])
 
-    named_rules = {}
-    rules = []
+    # named_rules = {}
+    # rules = []
     named_lines = []
     add_lines = []
     if my_args.rules_file:
         (named_lines, add_lines) = rules_from_file(my_args.rules_file)
 
-    if my_args.strip_comments:
-        named_rules["StripComments"] = (sm.true_test, None, strip_comments_action, None)
-        add_lines.append("::StripComments")
+    # if my_args.strip_comments:
+    #     named_rules["$StripComments"] = (sm.true_test, None, strip_comments_action, None)
+    #     add_lines.append("::StripComments")
 
-    named_rules.update({ n: r for n,*r in parse_rules(named_lines) })
-    named_rules.update({ n: r for n,*r in parse_rules(my_args.named_rules) })  # Named rules in args can override named rules from the file
-    rules.extend(parse_rules(my_args.add_rules, aliases=named_rules))  # Added rules in args have higher precedence than rules from the file
+    # named_rules.update({ n: r for n,*r in parse_rules(named_lines) })  # BJH: FIXME: these will become parse_aliases which will return the dicts
+    # named_rules.update({ n: r for n,*r in parse_rules(my_args.named_rules) })  # Named rules in args can override named rules from the file 
+
+    # First parse command-line to lay down any low-level aliases
+    (named_rules, unresolved_rules) = parse_aliases(my_args.named_rules)
+
+    # Then parse named rules from file
+    (aliases, unresolved) = parse_aliases(named_lines, existing=named_rules, override = False)  # Don't override the command-line
+    named_rules.update(aliases)
+    unresolved_rules.update(unresolved)
+
+    # Finally override any rules based on the command-line again
+    (aliases, unresolved) = parse_aliases(my_args.named_rules, existing=named_rules, override = True)
+    named_rules.update(aliases)
+    unresolved_rules.update(unresolved)
+
+    rules = parse_rules(my_args.add_rules, aliases=named_rules)  # Added rules in args have higher precedence than rules from the file
     rules.extend(parse_rules(add_lines, aliases=named_rules))
 
     if my_args.default_rule:
@@ -162,6 +176,7 @@ def main(args, env, stdin):
             # Add additional verbose tracing
             tracer = sm.Tracer(printer=my_args.trace)
     parser = sm.StateMachine(my_args.start, tracer=tracer)
+    # print([ r for r in rules if len(r) > 5 ])  # BJH: debug
     for r in rules:
         parser.add(*r)
 
@@ -171,17 +186,96 @@ def main(args, env, stdin):
 
 
 ###  Rule Parsing  ###
-def parse_rules(l, aliases=None):
+def parse_aliases(l, existing={}, override=False):
+    "Parse a list of named rule strings into aliases for add-rules"
+    aliases = {}  # {"$name": [fields...], ...}
+    unresolved = {}  # {"$name": [fields...], ...}
+    for s in l:
+        name,*fields = split_rule(s)
+        assert not name.startswith("$"), f"Rule name '{name}' cannot start with $"
+
+        name = f"${name}"  # All the lookups are way easier if we just work with the $-prefix
+        if not override and name in existing:
+            # print("don't override")
+            continue
+
+        expanded = ( aliases.get(f) or existing.get(f, [f,]) for f in fields )  # try to expand each field into previously defined fields or "expand" into a list contining itself to keep everything on the same level...
+        fields = [ f for e in expanded for f in e ]  #...then flatten back into a list
+
+        if [ f for f in fields if f is not None and f.startswith("$") and not f.startswith("$$") ]:
+            # Stash any aliases that did not completely resolve
+            unresolved[name] = fields
+            continue
+
+        aliases[name] = fields
+
+    return (aliases, unresolved)
+
+
+# def expand_alias(parts, aliases):
+#     parts += [None,] * 3
+#     expansion = aliases.get(parts[1], None)
+#     if expansion is not None:
+#         r = ([parts[0], *expansion] + [None,] * 7)[:7]
+#         if parts[2]:
+#             # Override the tag if one was specified
+#             r[-1] = parts[2]
+#         elif not r[-1]:
+#             # Auto-tag with rule name if none was specified
+#             r[-1] = parts[1]
+
+def parse_rules(l, aliases={}):
+    rules = []
+    for s in l:
+        parts = split_rule(s)
+        if (1 < len(parts) <= 3
+            and parts[1] is not None
+            and parts[1].startswith("$")):
+            # Expand and auto-tag pure-alias rule
+            name = parts[1]
+            assert name in aliases, f"Unresolved alias {name}"
+            tag = name.lstrip("$")
+            if len(parts) == 3 and parts[2] is not None:
+                tag = parts[2]
+            r = ([parts[0], *aliases[name]] + [None,] * 7)[:7]
+            r[-1] = tag
+        else:
+            # Expand literal rule to 7 fields
+            r = (parts + [None,] * 7)[:7]
+        rules.append(resolve_rule(*r))
+    return rules
+
+
+def resolve_rule(name, test, t_arg, dst, action, a_arg, tag):
+    if not test:
+        test = "_default"
+    l_test = test.lower()
+    if l_test not in Tests.__dict__:
+        raise KeyError(f"no '{test}' in Tests, run with --more-help for full list")
+    test = Tests.__dict__[l_test](t_arg)
+
+    if not action:
+        action = "_default"
+    l_action = action.lower()
+    if l_action not in Actions.__dict__:
+        raise KeyError(f"no '{action}' in Actions, run with --more-help for full list")
+    action = Actions.__dict__[l_action](a_arg)
+
+    return (name, test, dst, action, tag)
+
+
+def x_parse_rules(l, aliases=None):
     "Parse a list of rule strings into rules suitable for statemachine.add"
     rules = []
     for s in l:
         parts = split_rule(s)
 
-        if aliases and len(parts) <= 3:
+        if aliases and len(parts) <= 3:  # FIXME: require $-prefix for alias lookups, give better error if unresolved
             # Very short rule may be an alias reference
             parts += [None,] * 3
-            if parts[1] in aliases:
-                r = [parts[0], *aliases[parts[1]]]
+            expansion = aliases.get(parts[1], None)
+            if expansion is not None:
+                r = [parts[0], *expansion]
                 if parts[2]:
                     # Override the tag if one was specified
                     r[-1] = parts[2]
@@ -367,7 +461,7 @@ def rules_from_file(rules_file):
         # lines = list(lines); print("\n".join(lines), end="")  # join "spends" the generator, convert to list first so it can be iterated again
         for l in lines:
             categorizer.input(l)
-
+    # print(f"Named: {named_lines}\nAdd:{add_lines}")  # BJH: debug
     return (named_lines, add_lines)
 
 
