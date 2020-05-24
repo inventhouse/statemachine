@@ -204,23 +204,24 @@ To Do
 - "reject" action?  cease parsing and exit non-zero, but don't throw
 
 - named tests & actions?
-    - or maybe general substitution macros?
-        - NO: will this be weird different delimiters? - nah, just parse the macro with its delimiter, then expand it in the parsed rule list with its already-split fields
-        - just like named rules: delim-name-delim-field...
-            - should named rules just be an instance of this? what to do about auto-tagging?
-        - multiple expansion? - powerful but fraught with peril ...but _powerful_
-            - ...but _perilous_ - what safeguards can be put in place?
-            - Expansion depth limit
-            - Expand only based on previously-defined expansions - expansions with undefined names are discarded?
-                - need verbose logging to see cases of this for debugging? or just use --print-args and see that things got lost?  or they get squirreled away and the ones that never get expanded are printed separately? - yeah, that one
-            - need a way to specify "expand this" - $name, $$junk to escape?  - have to apply escape at rule-add time
-            - expansions only apply in the named-rule parsing, all expanding should be done by the add-rules phase
-        - how to handle overriding named rules on the command-line - may want to override fundamental aliases like a test regex _or_ override "later" rules that use test regex defined in the file
+    - DONE: or maybe general substitution macros?
+        - NO: will this be weird with different delimiters? - nah, just parse the macro with its delimiter, then expand it in the parsed rule list with its already-split fields
+        - DONE: just like named rules: delim-name-delim-field...
+            - YES: should named rules just be an instance of this? DONE: what to do about auto-tagging?
+        - DONE: multiple expansion? - powerful but fraught with peril ...but _powerful_
+            - DONEish: ...but _perilous_ - what safeguards can be put in place?
+            - NO: Expansion depth limit - not needed
+            - DONE: Expand only based on previously-defined expansions - expansions with undefined names are discarded?
+                - NO: need verbose logging to see cases of this for debugging? - just use --print-args and see that things didn't expand; de-cloak print-args
+            - NO: need a way to specify "expand this" - $name, $$junk to escape?  - NO:have to apply escape at rule-add time - just like delimiters, define your own convention
+            - NO: expansions only apply in the named-rule parsing, all expanding should be done by the add-rules phase - they are a generalization of named rules, there's no real difference
+        - DONE: how to handle overriding named rules on the command-line - may want to override fundamental aliases like a test regex _or_ override "later" rules that use test regex defined in the file
             - parse command-line named rules once building a dictionary of any that don't depend on things not-yet-defined
             - parse file rules treating existing dictionary as canon, _not_ overriding anything already defined
             - parse command-line rules _again_ using expansions from existing dictionary, but _override_ existing dictionary items - rules that were defined in the first phase should override to themselves, rules that couldn't be expanded the first time around should now expand and override the file version
             - track rules whose definition failed due to missing expansions, minus ones that were eventually defined, print in print-args; if non-empty, maybe print warning?
             - _phew!_
+
 - good way to allow multiple actions to apply to a line
     - could allow one to just keep piling them on?
 

@@ -124,7 +124,6 @@ def main(args, env, stdin):
         print(style_helper())
         return 0
 
-
     named_lines = []
     add_lines = []
     if my_args.rules_file:
@@ -147,11 +146,6 @@ def main(args, env, stdin):
 
     if my_args.default_rule:
         rules.append(my_args.default_rule)
-
-    rules = [ 
-        [ f if f is None or not f.startswith("$$") else f[1:] for f in r ] 
-        for r in rules 
-        ]
 
     if my_args.print_args:
         n_str = "\n\t".join(f"{n}: {r}" for n,r in named_rules.items())
@@ -186,18 +180,10 @@ def parse_aliases(l, existing=None, override=False):
 
     for s in l:
         name,*fields = split_rule(s)
-        assert not name.startswith("$"), f"Rule name '{name}' cannot start with $"
-
-        name = f"${name}"  # All the lookups are way easier if we just work with the $-prefix
         if not override and name in existing:
             continue
 
         fields = resolve_aliases(fields, aliases, existing)
-
-        # if [ f for f in fields if f is not None and f.startswith("$") and not f.startswith("$$") ]:
-        #     # Stash any aliases that did not completely resolve
-        #     unresolved[name] = fields
-        #     continue
 
         aliases[name] = fields
 
@@ -224,9 +210,9 @@ def parse_rules(l, aliases=None):
         if len(parts) < 2:  # ensure at least 2 fields
             parts = [*parts, None, None][:2]
         tag = None
-        if (len(parts) == 2 and parts[0] is not None and parts[0].startswith("$")):
+        if (len(parts) == 2 and parts[0] is not None and parts[0] in aliases):
             # get auto-tag for pure-alias rule
-            tag = parts[0].lstrip("$")
+            tag = parts[0]
             if parts[1] is not None:
                 tag = parts[1]
                 parts[1] = None  # drop the explicit tag for now
