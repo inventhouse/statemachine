@@ -176,7 +176,6 @@ def main(args, env, stdin):
             # Add additional verbose tracing
             tracer = sm.Tracer(printer=my_args.trace)
     parser = sm.StateMachine(my_args.start, tracer=tracer)
-    # print([ r for r in rules if len(r) > 5 ])  # BJH: debug
     for r in rules:
         parser.add(*r)
 
@@ -196,7 +195,6 @@ def parse_aliases(l, existing={}, override=False):
 
         name = f"${name}"  # All the lookups are way easier if we just work with the $-prefix
         if not override and name in existing:
-            # print("don't override")
             continue
 
         expanded = ( aliases.get(f) or existing.get(f, [f,]) for f in fields )  # try to expand each field into previously defined fields or "expand" into a list contining itself to keep everything on the same level...
@@ -211,18 +209,6 @@ def parse_aliases(l, existing={}, override=False):
 
     return (aliases, unresolved)
 
-
-# def expand_alias(parts, aliases):
-#     parts += [None,] * 3
-#     expansion = aliases.get(parts[1], None)
-#     if expansion is not None:
-#         r = ([parts[0], *expansion] + [None,] * 7)[:7]
-#         if parts[2]:
-#             # Override the tag if one was specified
-#             r[-1] = parts[2]
-#         elif not r[-1]:
-#             # Auto-tag with rule name if none was specified
-#             r[-1] = parts[1]
 
 def parse_rules(l, aliases={}):
     rules = []
@@ -262,48 +248,6 @@ def resolve_rule(name, test, t_arg, dst, action, a_arg, tag):
     action = Actions.__dict__[l_action](a_arg)
 
     return (name, test, dst, action, tag)
-
-
-def x_parse_rules(l, aliases=None):
-    "Parse a list of rule strings into rules suitable for statemachine.add"
-    rules = []
-    for s in l:
-        parts = split_rule(s)
-
-        if aliases and len(parts) <= 3:  # FIXME: require $-prefix for alias lookups, give better error if unresolved
-            # Very short rule may be an alias reference
-            parts += [None,] * 3
-            expansion = aliases.get(parts[1], None)
-            if expansion is not None:
-                r = [parts[0], *expansion]
-                if parts[2]:
-                    # Override the tag if one was specified
-                    r[-1] = parts[2]
-                elif not r[-1]:
-                    # Auto-tag with rule name if none was specified
-                    r[-1] = parts[1]
-                rules.append(r)
-                continue
-
-        parts += [None,] * 7
-        (name, test, t_arg, dst, action, a_arg, tag) = parts[:7]
-
-        if not test:
-            test = "_default"
-        l_test = test.lower()
-        if l_test not in Tests.__dict__:
-            raise KeyError(f"no '{test}' in Tests, run with --more-help for full list")
-        test = Tests.__dict__[l_test](t_arg)
-
-        if not action:
-            action = "_default"
-        l_action = action.lower()
-        if l_action not in Actions.__dict__:
-            raise KeyError(f"no '{action}' in Actions, run with --more-help for full list")
-        action = Actions.__dict__[l_action](a_arg)
-
-        rules.append((name, test, dst, action, tag))
-    return rules
 
 
 def split_rule(s):
@@ -461,7 +405,6 @@ def rules_from_file(rules_file):
         # lines = list(lines); print("\n".join(lines), end="")  # join "spends" the generator, convert to list first so it can be iterated again
         for l in lines:
             categorizer.input(l)
-    # print(f"Named: {named_lines}\nAdd:{add_lines}")  # BJH: debug
     return (named_lines, add_lines)
 
 
