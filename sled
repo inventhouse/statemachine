@@ -80,7 +80,7 @@ def main(args, env, stdin):
         "-d", "--drop-all",
         dest="default_rule",
         action="store_const",
-        const=(None, sm.true_test, None, None, "DropAll"),
+        const=(None, "T", None, None, None, None, "DropAll"),
         default=None,
         help="Add a final DropAll rule to drop any input not handled."
     )
@@ -88,7 +88,7 @@ def main(args, env, stdin):
         "-p", "--pass-all",
         dest="default_rule",
         action="store_const",
-        const=(None, sm.true_test, None, sm.input_action, "PassAll"),
+        const=(None, "T", None, None, "I", None, "PassAll"),
         default=None,
         help="Add a final PassAll rule to pass any input not handled."
     )
@@ -153,7 +153,9 @@ def main(args, env, stdin):
         rules.append(my_args.default_rule)
 
     if my_args.print_args:
-        print(f"* Args:\n\t{my_args}\n* Named Rules:\n\t{named_rules}\n* Rules:\n\t{rules}")
+        n_str = "\n\t".join(f"{n}: {r}" for n,r in named_rules.items())
+        r_str = "\n\t".join(f"{s}: {r}" for s,*r in rules)
+        print(f"* Args:\n\t{my_args}\n* Named Rules:\n\t{n_str}\n* Rules:\n\t{r_str}")
         return 0
     if my_args.more_help:
         print(wrapper(f"{helper(Tests)}\n\n{helper(Actions)}", width=75))
@@ -173,7 +175,8 @@ def main(args, env, stdin):
             tracer = sm.Tracer(printer=my_args.trace)
     parser = sm.StateMachine(my_args.start, tracer=tracer)
     for r in rules:
-        parser.add(*r)
+        # print(r)
+        parser.add(*resolve_rule(*r))
 
     for line in parser.parse( l.rstrip("\n") for l in stdin ):
         print(line)
@@ -239,7 +242,7 @@ def parse_rules(l, aliases=None):
         if tag is not None:
             parts[-1] = tag  # apply saved tag
 
-        rules.append(resolve_rule(state, *parts))
+        rules.append((state, *parts))
 
     return rules
 
