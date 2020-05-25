@@ -19,16 +19,26 @@ Rules with no starting state will be added to all states, but are evaluated afte
 
 If an input does not match any rule for the current state, an exception is raised with a short trace of recent transitions; the depth of this trace can be set or additional tracing can be enabled with `-t/--trace`.
 
-Named rules can be defined with `-r/--named-rules` and start with a (non-whitespace) delimiter character of our choice follwed by 7 fields:
+Rules can be defined with `-r/--named-rules` and start with a (non-whitespace) delimiter character of our choice follwed by 7 fields:
 
     :name:test:arg:dst:action:arg:tag
 
-Rules are added to states in the underlying statemachine with `-a/--add-rules`, and may be either named or anonymous:
+Named rules can use previously defined named rule fragments; for example, a complex regular expression can be defined once and used elsewhere:
 
-    :state:name:tag
+    :CommentRE:(^|\s+)#($|[^#].*$)
+    :DropComments:S:CommentRE::S::
+
+Rules are added to states in the underlying statemachine with `-a/--add-rules`:
+
     :state:test:arg:dst:action:arg:tag
 
-For convenience, unnecessary fields may be omitted from the end in all cases, 'test' and 'action' commands are not case-sensitive, and named rules will be automatically tagged.
+For convenience, unnecessary fields may be omitted from the end in all cases, and 'test' and 'action' commands are not case-sensitive.  Rules with no 'state' specified are implicitly added to all states, but evaluated after any explicit rules; rules with no 'dst' remain in the same state ("self-transition")
+
+Rules can use previously defined rule fragments; if the rule is completely defined by a named rule, like the following, it will be auto-tagged with that name:
+
+    :state:name
+
+Use `--print-rules` to see the final parsed rules.  Note that named rules do not get automatically added to the parser; the 'Rules' list are the ones that define the parser.  They are added to their states in order, and earlier rules have precedence over later ones.
 
 In addtion to the general options and help that can be printed with `-h/--help`, available tests and actions are documented in `--more-help` and text styling is shown in `--style-help`.
 
@@ -41,6 +51,7 @@ In addtion to the general options and help that can be printed with `-h/--help`,
 A detailed example
 ------------------
 This example will use the `status.txt` file, a sanitized version of the output from a team status chatbot.  Throughout the example, we'll use the `:` delimiter as a convention, but each rule can be defined with any non-whitespace character that doesn't otherwise appear in the rule.
+
 
 ### Pass lines between delimiters
 
@@ -84,6 +95,7 @@ I didn't hear from @qed, @foo, @bar, @qux! Keep up your good work team!
 
 This could also be done with anonymous rules, as each rule was only added in one place in this example; named rules do have the advantage of automatic tagging to make trace output easier to understand, however.
 
+
 ### Tracing
 
 Statemachines are powerful and fascinating - and can be hard to debug if we can't see what they're doing sometimes.
@@ -110,6 +122,7 @@ T>          ==> '@bholt'
 ```
 
 Note the very last line above has no prefix, it is the parser's normal output.
+
 
 ### Unrecognized input
 
