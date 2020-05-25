@@ -232,7 +232,7 @@ def parse_rules(l, aliases=None):
 
         parts = resolve_aliases(parts, aliases)
         parts = (parts + [None,] * 6)[:6]  # Expand parts to 6 fields
-        if autotag is not None:
+        if autotag is not None and parts[-1] is None:
             parts[-1] = autotag  # apply saved tag
 
         rules.append((state, *parts))
