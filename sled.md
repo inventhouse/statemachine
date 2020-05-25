@@ -203,9 +203,11 @@ To Do
 - generalize comment stripper to take a string like `//`, `;`, or `--`
 - comment stripper / toggle sled program
     - write up as a more sophisticated example
-    - recommendations for embedding into shell scripts / aliases - use `#!/usr/bin/env sled -f`
-        - validate that that shebang line works on linux (if the `-f` is problematic, could change sled to take the rules file as the first argument and a flag for an input file)
-        - some way for -h to print help from a sled script?
+  
+- document recommendations for embedding into shell scripts / aliases - use `#!/usr/bin/env sled -f`
+    - validate that that shebang line works on linux (if the `-f` is problematic, could change sled to take the rules file as the first argument and a flag for an input file)
+    - DONE: some way for -h to print help from a sled script? - if -f is also specified, print the prologue from the rules file instead of general sled help
+        - DONE: `wrapper` it!
 
 - HTML escaping and styling?
 

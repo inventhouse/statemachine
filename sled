@@ -50,6 +50,7 @@ def main(args, env, stdin):
         description=wrapper(description, width=75),
         epilog=wrapper(epilog, width=75),
         formatter_class=argparse.RawDescriptionHelpFormatter,
+        add_help=False,  # custom help to allow printing help from sled scripts
     )
     # arg_parser.add_argument(
     #     "in_file",
@@ -107,6 +108,11 @@ def main(args, env, stdin):
         help="An integer will set the default tracing depth, negative means unlimited.  Otherwise, add a verbose trace to the statemachine; trace lines will start with PREFIX, by default 'T> '.",
     )
     arg_parser.add_argument(
+        "-h", "--help",
+        action="store_true",
+        help="Show this help message or, if -f/--rules-file is specified print its prologue, and exit.",
+    )
+    arg_parser.add_argument(
         "--more-help",
         action="store_true",
         help="Print help about the available tests and actions.",
@@ -130,6 +136,12 @@ def main(args, env, stdin):
     )
     my_args = arg_parser.parse_args(args[1:])
 
+    if my_args.help and my_args.rules_file:
+        print(wrapper(help_from_file(my_args.rules_file), width=75), end="")
+        return 0
+    if my_args.help:
+        arg_parser.print_help()
+        return 0
     if my_args.more_help:
         print(wrapper(f"{helper(Tests)}\n\n{helper(Actions)}", width=75))
         return 0
@@ -360,6 +372,37 @@ def wrapper(text, **kwargs):
     "Nothing worse than a bad wrap"
     # Wrap each paragraph separately, then put them back together
     return "\n".join([ textwrap.fill(s, **kwargs) for s in text.splitlines() ])
+
+
+def help_from_file(rules_file):
+    early_junk = sm.match_test(r"(^\s*$)|(^\s*#)", flags=re.IGNORECASE)
+
+    section_mark = sm.match_test(r"(Named|Add|End)\s*Rules\s*:*", flags=re.IGNORECASE)
+
+    tracer = True
+    # tracer = sm.Tracer(printer=lambda s: print(f"T> {s}"))
+    categorizer = sm.StateMachine("start", tracer=tracer)
+    categorizer.build(
+        "start",
+        (early_junk, None, None, "EarlyJunk"),   # skip initial empty lines and whole-line comments
+        (section_mark, "end", None, "SectionMark"),
+        (sm.true_test, "prologue", sm.input_action, "StartPrologue")
+    )
+    categorizer.build(
+        "prologue",
+        (section_mark, "end", None, "SectionMark"),
+        (sm.match_test(r"(^\s*#)"), "end", None, "CommentLine"),
+        (sm.true_test, None, sm.input_action, "Prologue")
+    )
+    categorizer.build(
+        "end",
+        (sm.true_test, None, None, "Drop")
+    )
+    # print(categorizer.rules)
+
+    with open(rules_file, "r") as rf:
+        help_text = "".join(categorizer.parse(rf))
+    return help_text
 
 
 def rules_from_file(rules_file):
