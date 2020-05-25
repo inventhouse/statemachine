@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Copyright (c) 2019 Benjamin Holt -- MIT License
+# Copyright (c) 2019-2020 Benjamin Holt -- MIT License
 
 """
 Statemachine Line EDitor
@@ -21,18 +21,26 @@ import statemachine as sm
 
 ###  Main  ###
 def main(args, env, stdin):
-    description = "Statemachine Line EDitor, like `sed` but built with statemachine rules (v1.0)"
+    description = "Statemachine Line EDitor, like `sed` but built with statemachine rules (v1.5)"
     epilog = textwrap.dedent("""\
-    Rules can be created with -r/--named-rules and start with a delimiter character of our choice follwed by 7 fields:
+    Rules can be created with -r/--named-rules and start with a delimiter character of our choice follwed by up to 7 fields:
 
         :name:test:arg:dst:action:arg:tag
 
-    Rules are added to states in the underlying statemachine with -a/--add-rules, and may be either named or anonymous:
+    Named rules can use previously defined named rule fragments; for example, a complex regular expression can be defined once and used elsewhere:
 
-        :state:name:tag
+        :CommentRE:(^|\s+)#($|[^#].*$)
+        :DropComments:S:CommentRE::S::
+
+    Rules are added to states in the underlying statemachine with -a/--add-rules:
+
         :state:test:arg:dst:action:arg:tag
 
     Unnecessary fields may be omitted from the end in all cases, and 'test' and 'action' commands are not case-sensitive.  Rules with no 'state' specified are implicitly added to all states, but evaluated after any explicit rules; rules with no 'dst' remain in the same state ("self-transition")
+
+    Rules can use previously defined rule fragments; if the rule is completely defined by a named rule, like the following, it will be auto-tagged with that name:
+
+        :state:name
 
     More documentation and examples in sled.md:
     https://github.com/inventhouse/statemachine/blob/master/sled.md
@@ -70,17 +78,10 @@ def main(args, env, stdin):
         help="Add rules to the statemachine.",
     )
     arg_parser.add_argument(
-        "-c", "--strip-comments",
-        action="store_true",
-        # const=(None, sm.true_test, None, None, "StripComments"),
-        # default=None,
-        help="Add a StripComments rule to scrub #-style comments; must be explicitly added to states to raise its priority."
-    )
-    arg_parser.add_argument(
         "-d", "--drop-all",
         dest="default_rule",
         action="store_const",
-        const=(None, sm.true_test, None, None, "DropAll"),
+        const=(None, "T", None, None, None, None, "DropAll"),
         default=None,
         help="Add a final DropAll rule to drop any input not handled."
     )
@@ -88,7 +89,7 @@ def main(args, env, stdin):
         "-p", "--pass-all",
         dest="default_rule",
         action="store_const",
-        const=(None, sm.true_test, None, sm.input_action, "PassAll"),
+        const=(None, "T", None, None, "I", None, "PassAll"),
         default=None,
         help="Add a final PassAll rule to pass any input not handled."
     )
@@ -116,41 +117,56 @@ def main(args, env, stdin):
         help="Print help about the available text styles.",
     )
     arg_parser.add_argument(
+        "--print-rules",
+        action="store_true",
+        help="Print the parsed rules, then exit.  Named rules do not get automatically added to the parser; the 'Rules' list are the ones that define the parser.  They are added to their states in order, and earlier rules have precedence over later ones.",
+        # help=argparse.SUPPRESS,
+    )
+    arg_parser.add_argument(
         "--print-args",
         action="store_true",
-        # help="Print arguments and compiled rules, then exit.",
+        # help="Print arguments and parsed rules, then exit.",
         help=argparse.SUPPRESS,
     )
     my_args = arg_parser.parse_args(args[1:])
 
-    named_rules = {}
-    rules = []
-    named_lines = []
-    add_lines = []
-    if my_args.rules_file:
-        (named_lines, add_lines) = rules_from_file(my_args.rules_file)
-
-    if my_args.strip_comments:
-        named_rules["StripComments"] = (sm.true_test, None, strip_comments_action, None)
-        add_lines.append("::StripComments")
-
-    named_rules.update({ n: r for n,*r in parse_rules(named_lines) })
-    named_rules.update({ n: r for n,*r in parse_rules(my_args.named_rules) })  # Named rules in args can override named rules from the file
-    rules.extend(parse_rules(my_args.add_rules, aliases=named_rules))  # Added rules in args have higher precedence than rules from the file
-    rules.extend(parse_rules(add_lines, aliases=named_rules))
-
-    if my_args.default_rule:
-        rules.append(my_args.default_rule)
-
-    if my_args.print_args:
-        print(f"* Args:\n\t{my_args}\n* Named Rules:\n\t{named_rules}\n* Rules:\n\t{rules}")
-        return 0
     if my_args.more_help:
         print(wrapper(f"{helper(Tests)}\n\n{helper(Actions)}", width=75))
         return 0
     if my_args.style_help:
         print(wrapper("In formatting contexts, styles and colors are available as attributes on an object `s`, and usually output should returned to normal with `s.off`, though a couple styles also offer end-codes.  Like this:\n\n\tTo {{s.b}}boldly{{s.off}} go where no one has gone before\n\tTo {s.b}boldly{s.off} go where no one has gone before\n\nText styling varies a lot based on the terminal and settings, and is omitted if the output is redirected.  Here are some examples of their appearance:\n".format(s=style), width=75))
         print(style_helper())
+        return 0
+
+    named_lines = []
+    add_lines = []
+    if my_args.rules_file:
+        (named_lines, add_lines) = rules_from_file(my_args.rules_file)
+
+    # First parse command-line to lay down any low-level aliases
+    named_rules = parse_aliases(my_args.named_rules)
+
+    # Then parse aliases from file
+    aliases = parse_aliases(named_lines, existing=named_rules, override = False)  # Don't override the command-line
+    named_rules.update(aliases)
+
+    # Finally override any aliases based on the command-line again
+    aliases = parse_aliases(my_args.named_rules, existing=named_rules, override = True)
+    named_rules.update(aliases)
+
+    # Parse rules
+    rules = parse_rules(my_args.add_rules, aliases=named_rules)  # Added rules in args have higher precedence than rules from the file
+    rules.extend(parse_rules(add_lines, aliases=named_rules))
+
+    if my_args.default_rule:
+        rules.append(my_args.default_rule)
+
+    if my_args.print_rules:
+        print(format_rules(named_rules, rules))
+        return 0
+
+    if my_args.print_args:
+        print(f"* Args:\n\t{my_args}\n\n{format_rules(named_rules, rules)}")
         return 0
 
     tracer = True  # Use the built-in default tracing
@@ -163,7 +179,8 @@ def main(args, env, stdin):
             tracer = sm.Tracer(printer=my_args.trace)
     parser = sm.StateMachine(my_args.start, tracer=tracer)
     for r in rules:
-        parser.add(*r)
+        # print(r)
+        parser.add(*resolve_rule(*r))
 
     for line in parser.parse( l.rstrip("\n") for l in stdin ):
         print(line)
@@ -171,45 +188,74 @@ def main(args, env, stdin):
 
 
 ###  Rule Parsing  ###
+def parse_aliases(l, existing=None, override=False):
+    "Parse a list of named rule strings into aliases for add-rules"
+    if existing is None:
+        existing = {}  # {"$name": [fields...], ...}
+    aliases = {}  # {"$name": [fields...], ...}
+
+    for s in l:
+        name,*fields = split_rule(s)
+        if not override and name in existing:
+            continue
+
+        fields = resolve_aliases(fields, aliases, existing)
+
+        aliases[name] = fields
+
+    return aliases
+
+
+def resolve_aliases(fields, *lookups):
+    def expand(f):
+        for l in lookups:
+            if f in l:
+                return l[f]
+        return [f,]  # wrap in list to keep everything on the same level
+
+    expanded = ( expand(f) for f in fields )  # expansion produces list-of-lists...
+    return [ f for e in expanded for f in e ]  #...so flatten back into a list
+
+
 def parse_rules(l, aliases=None):
-    "Parse a list of rule strings into rules suitable for statemachine.add"
+    if aliases is None:
+        aliases = {}
     rules = []
     for s in l:
-        parts = split_rule(s)
+        autotag = None
+        state,*parts = split_rule(s)
+        if len(parts) < 1:  # ensure at least 1 field
+            parts = [None,]
+        if (len(parts) == 1 and parts[0] is not None and parts[0] in aliases):
+            # get auto-tag for pure-alias rule
+            autotag = parts[0]
 
-        if aliases and len(parts) <= 3:
-            # Very short rule may be an alias reference
-            parts += [None,] * 3
-            if parts[1] in aliases:
-                r = [parts[0], *aliases[parts[1]]]
-                if parts[2]:
-                    # Override the tag if one was specified
-                    r[-1] = parts[2]
-                elif not r[-1]:
-                    # Auto-tag with rule name if none was specified
-                    r[-1] = parts[1]
-                rules.append(r)
-                continue
+        parts = resolve_aliases(parts, aliases)
+        parts = (parts + [None,] * 6)[:6]  # Expand parts to 6 fields
+        if autotag is not None:
+            parts[-1] = autotag  # apply saved tag
 
-        parts += [None,] * 7
-        (name, test, t_arg, dst, action, a_arg, tag) = parts[:7]
+        rules.append((state, *parts))
 
-        if not test:
-            test = "_default"
-        l_test = test.lower()
-        if l_test not in Tests.__dict__:
-            raise KeyError(f"no '{test}' in Tests, run with --more-help for full list")
-        test = Tests.__dict__[l_test](t_arg)
-
-        if not action:
-            action = "_default"
-        l_action = action.lower()
-        if l_action not in Actions.__dict__:
-            raise KeyError(f"no '{action}' in Actions, run with --more-help for full list")
-        action = Actions.__dict__[l_action](a_arg)
-
-        rules.append((name, test, dst, action, tag))
     return rules
+
+
+def resolve_rule(state, test, t_arg, dst, action, a_arg, tag):
+    if not test:
+        test = "_default"
+    l_test = test.lower()
+    if l_test not in Tests.__dict__:
+        raise KeyError(f"no '{test}' in Tests, run with --more-help for full list")
+    test = Tests.__dict__[l_test](t_arg)
+
+    if not action:
+        action = "_default"
+    l_action = action.lower()
+    if l_action not in Actions.__dict__:
+        raise KeyError(f"no '{action}' in Actions, run with --more-help for full list")
+    action = Actions.__dict__[l_action](a_arg)
+
+    return (state, test, dst, action, tag)
 
 
 def split_rule(s):
@@ -290,6 +336,8 @@ class Actions:
     def s(s):
         ":S:r:\tSub all occurrences of the test pattern with a replacement; formatting is available in the replacement string as describe above."
         # TODO: assert the result is an re.match
+        if s is None:
+            s = ""
         return lambda i, t: t.result.re.sub(s.format(i=i, r=t.result, s=style), i)
 
     def _default(s):
@@ -367,7 +415,6 @@ def rules_from_file(rules_file):
         # lines = list(lines); print("\n".join(lines), end="")  # join "spends" the generator, convert to list first so it can be iterated again
         for l in lines:
             categorizer.input(l)
-
     return (named_lines, add_lines)
 
 
@@ -395,6 +442,13 @@ def style_helper():
     cl = [ "{{s.{n}_bg}}{n}_bg{{s.off}}".format(n=n).format(s=style) for n in COLOR_NAMES]
     h.append("\t" + "  ".join(cl))
     return "\n".join(h)
+
+
+def format_rules(named_rules, rules):
+        n_str = "\n\t".join(f"{n}: {r}" for n,r in named_rules.items())
+        r_str = "\n\t".join(f"{s}: {r}" for s,*r in rules)
+        return f"* Named Rules:\n\t{n_str}\n\n* Rules:\n\t{r_str}"
+
 #####
 
 

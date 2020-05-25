@@ -19,16 +19,26 @@ Rules with no starting state will be added to all states, but are evaluated afte
 
 If an input does not match any rule for the current state, an exception is raised with a short trace of recent transitions; the depth of this trace can be set or additional tracing can be enabled with `-t/--trace`.
 
-Named rules can be defined with `-r/--named-rules` and start with a (non-whitespace) delimiter character of our choice follwed by 7 fields:
+Rules can be defined with `-r/--named-rules` and start with a (non-whitespace) delimiter character of our choice follwed by 7 fields:
 
     :name:test:arg:dst:action:arg:tag
 
-Rules are added to states in the underlying statemachine with `-a/--add-rules`, and may be either named or anonymous:
+Named rules can use previously defined named rule fragments; for example, a complex regular expression can be defined once and used elsewhere:
 
-    :state:name:tag
+    `:CommentRE:(^|\s+)#($|[^#].*$)`
+    `:DropComments:S:CommentRE::S::`
+
+Rules are added to states in the underlying statemachine with `-a/--add-rules`:
+
     :state:test:arg:dst:action:arg:tag
 
-For convenience, unnecessary fields may be omitted from the end in all cases, 'test' and 'action' commands are not case-sensitive, and named rules will be automatically tagged.
+For convenience, unnecessary fields may be omitted from the end in all cases, and 'test' and 'action' commands are not case-sensitive.  Rules with no 'state' specified are implicitly added to all states, but evaluated after any explicit rules; rules with no 'dst' remain in the same state ("self-transition")
+
+Rules can use previously defined rule fragments; if the rule is completely defined by a named rule, like the following, it will be auto-tagged with that name:
+
+    :state:name
+
+Use `--print-rules` to see the final parsed rules.  Note that named rules do not get automatically added to the parser; the 'Rules' list are the ones that define the parser.  They are added to their states in order, and earlier rules have precedence over later ones.
 
 In addtion to the general options and help that can be printed with `-h/--help`, available tests and actions are documented in `--more-help` and text styling is shown in `--style-help`.
 
@@ -41,6 +51,7 @@ In addtion to the general options and help that can be printed with `-h/--help`,
 A detailed example
 ------------------
 This example will use the `status.txt` file, a sanitized version of the output from a team status chatbot.  Throughout the example, we'll use the `:` delimiter as a convention, but each rule can be defined with any non-whitespace character that doesn't otherwise appear in the rule.
+
 
 ### Pass lines between delimiters
 
@@ -84,6 +95,7 @@ I didn't hear from @qed, @foo, @bar, @qux! Keep up your good work team!
 
 This could also be done with anonymous rules, as each rule was only added in one place in this example; named rules do have the advantage of automatic tagging to make trace output easier to understand, however.
 
+
 ### Tracing
 
 Statemachines are powerful and fascinating - and can be hard to debug if we can't see what they're doing sometimes.
@@ -110,6 +122,7 @@ T>          ==> '@bholt'
 ```
 
 Note the very last line above has no prefix, it is the parser's normal output.
+
 
 ### Unrecognized input
 
@@ -203,24 +216,6 @@ To Do
 - End action?  cease parsing but exit normally (can fake it with an end state and drop-all rule)  Or could be "accept"
 - "reject" action?  cease parsing and exit non-zero, but don't throw
 
-- named tests & actions?
-    - or maybe general substitution macros?
-        - NO: will this be weird different delimiters? - nah, just parse the macro with its delimiter, then expand it in the parsed rule list with its already-split fields
-        - just like named rules: delim-name-delim-field...
-            - should named rules just be an instance of this? what to do about auto-tagging?
-        - multiple expansion? - powerful but fraught with peril ...but _powerful_
-            - ...but _perilous_ - what safeguards can be put in place?
-            - Expansion depth limit
-            - Expand only based on previously-defined expansions - expansions with undefined names are discarded?
-                - need verbose logging to see cases of this for debugging? or just use --print-args and see that things got lost?  or they get squirreled away and the ones that never get expanded are printed separately? - yeah, that one
-            - need a way to specify "expand this" - $name, $$junk to escape?  - have to apply escape at rule-add time
-            - expansions only apply in the named-rule parsing, all expanding should be done by the add-rules phase
-        - how to handle overriding named rules on the command-line - may want to override fundamental aliases like a test regex _or_ override "later" rules that use test regex defined in the file
-            - parse command-line named rules once building a dictionary of any that don't depend on things not-yet-defined
-            - parse file rules treating existing dictionary as canon, _not_ overriding anything already defined
-            - parse command-line rules _again_ using expansions from existing dictionary, but _override_ existing dictionary items - rules that were defined in the first phase should override to themselves, rules that couldn't be expanded the first time around should now expand and override the file version
-            - track rules whose definition failed due to missing expansions, minus ones that were eventually defined, print in print-args; if non-empty, maybe print warning?
-            - _phew!_
 - good way to allow multiple actions to apply to a line
     - could allow one to just keep piling them on?
 
@@ -273,5 +268,25 @@ To Do
 
 - DONE: case-insensitive match and search actions
     - PUNT: any other flags?
+
+- DONE: named tests & actions?
+    - DONE: or maybe general substitution macros?
+        - NO: will this be weird with different delimiters? - nah, just parse the macro with its delimiter, then expand it in the parsed rule list with its already-split fields
+        - DONE: just like named rules: delim-name-delim-field...
+            - YES: should named rules just be an instance of this?  what to do about auto-tagging?
+            - DONE: only auto-tag :state:rule; too easy to for :state:$NamedTest:dst to be confused with the old :state:name:tag and it would get horibly mangled
+        - DONE: multiple expansion? - powerful but fraught with peril ...but _powerful_
+            - DONEish: ...but _perilous_ - what safeguards can be put in place?
+            - NO: Expansion depth limit - not needed
+            - DONE: Expand only based on previously-defined expansions - expansions with undefined names are discarded?
+                - NO: need verbose logging to see cases of this for debugging? - just use --print-args and see that things didn't expand; de-cloak print-args
+            - NO: need a way to specify "expand this" - $name, $$junk to escape?  - NO:have to apply escape at rule-add time - just like delimiters, define your own convention
+            - NO: expansions only apply in the named-rule parsing, all expanding should be done by the add-rules phase - they are a generalization of named rules, there's no real difference
+        - DONE: how to handle overriding named rules on the command-line - may want to override fundamental aliases like a test regex _or_ override "later" rules that use test regex defined in the file
+            - parse command-line named rules once building a dictionary of any that don't depend on things not-yet-defined
+            - parse file rules treating existing dictionary as canon, _not_ overriding anything already defined
+            - parse command-line rules _again_ using expansions from existing dictionary, but _override_ existing dictionary items - rules that were defined in the first phase should override to themselves, rules that couldn't be expanded the first time around should now expand and override the file version
+            - track rules whose definition failed due to missing expansions, minus ones that were eventually defined, print in print-args; if non-empty, maybe print warning?
+            - _phew!_
 
 ---

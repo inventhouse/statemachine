@@ -1,6 +1,12 @@
+#!/usr/bin/env sled -f
+
 Parse only my status out of a team standup message.  Clone of `statusparser` using sled rules; compare both implentations, but keep in mind that this one is a bit messy to demonstrate how `sled` parses a rules file.
 
-Run like this:
+Run like this if sled is in the PATH:
+
+> ./statusparser.sled < status.txt
+
+or:
 
 > cat status.txt | ./sled -f statusparser.sled
 
@@ -8,37 +14,37 @@ All this content is ignored without being explicitly marked as comments.
 
 Named Rules:
     # These are questions that define the status-bot's sections:
-    /startYesterday/L/1. What did you do yesterday?/yesterday/L/_Yesterday:_  # Use '/' since the action string has ':'
-    /startToday/L/2. What do you commit to today?/today/L/_Today:_
-    :startHowFar:L:3. How far along are you? Do you think you'll finish soon?:start
+    /$startYesterday/L/1. What did you do yesterday?/yesterday/L/_Yesterday:_  # Use '/' since the action string has ':'
+    /$startToday/L/2. What do you commit to today?/today/L/_Today:_
+    :$startHowFar:L:3. How far along are you? Do you think you'll finish soon?:start
 
     # My status lines should be 'F'ormatted with a block-quote ('> ') prefix
-    :myStatus:T:::F:> {i}
+    :$myStatus:T:::F:> {i}
 
 # Don't need to explicitly end a rule block if it's immediately followed by another
 # These lines would still be parsed, so #-comments are required
 
 Add Rules  # Lenient about the trailing ':'
-    :start:startYesterday
-    :start:startToday
-    :start:DropAll
+    :start:$startYesterday
+    :start:$startToday
+    :start:$DropAll
 
   addrules:  # Lenient about case and whitespace, too
-    :yesterday:startToday
+    :yesterday:$startToday
     :yesterday:M:@bholt:myYesterday
-    :yesterday:DropAll
+    :yesterday:$DropAll
 
-    :myYesterday:startToday
+    :myYesterday:$startToday
     :myYesterday:M:^@\w+$:yesterday
-    :myYesterday:myStatus
+    :myYesterday:$myStatus
 
-    :today:startHowFar
+    :today:$startHowFar
     :today:M:@bholt:myToday
-    :today:DropAll
+    :today:$DropAll
 
-    :myToday:startHowFar
+    :myToday:$startHowFar
     :myToday:M:^@\w+$:today
-    :myToday:myStatus
+    :myToday:$myStatus
 End Rules
 
 -----
@@ -59,7 +65,7 @@ Define some basic standbys down here out of the way; named rules are still avail
 
 Anything between rules blocks is still ignored.
 
-Named Rules:  # Rules defined late in the file are still usable
-    :PassAll:T:::I
-    :DropAll:T
+Named Rules:  # Rules defined late in the file are still usable at add-rules time
+    :$PassAll:T:::I
+    :$DropAll:T
 # End Rules is only required if there is additional content before the end of the file
