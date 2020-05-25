@@ -25,8 +25,8 @@ Rules can be defined with `-r/--named-rules` and start with a (non-whitespace) d
 
 Named rules can use previously defined named rule fragments; for example, a complex regular expression can be defined once and used elsewhere:
 
-    :CommentRE:(^|\s+)#($|[^#].*$)
-    :DropComments:S:CommentRE::S::
+    `:CommentRE:(^|\s+)#($|[^#].*$)`
+    `:DropComments:S:CommentRE::S::`
 
 Rules are added to states in the underlying statemachine with `-a/--add-rules`:
 
