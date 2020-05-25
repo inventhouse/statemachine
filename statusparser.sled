@@ -65,7 +65,7 @@ Define some basic standbys down here out of the way; named rules are still avail
 
 Anything between rules blocks is still ignored.
 
-Named Rules:  # Rules defined late in the file are still usable
+Named Rules:  # Rules defined late in the file are still usable at add-rules time
     :$PassAll:T:::I
     :$DropAll:T
 # End Rules is only required if there is additional content before the end of the file

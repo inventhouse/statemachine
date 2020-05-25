@@ -21,18 +21,26 @@ import statemachine as sm
 
 ###  Main  ###
 def main(args, env, stdin):
-    description = "Statemachine Line EDitor, like `sed` but built with statemachine rules (v1.0)"
+    description = "Statemachine Line EDitor, like `sed` but built with statemachine rules (v1.5)"
     epilog = textwrap.dedent("""\
-    Rules can be created with -r/--named-rules and start with a delimiter character of our choice follwed by 7 fields:
+    Rules can be created with -r/--named-rules and start with a delimiter character of our choice follwed by up to 7 fields:
 
         :name:test:arg:dst:action:arg:tag
 
-    Rules are added to states in the underlying statemachine with -a/--add-rules, and may be either named or anonymous:
+    Named rules can use previously defined named rule fragments; for example, a complex regular expression can be defined once and used elsewhere:
 
-        :state:name:tag
+        :CommentRE:(^|\s+)#($|[^#].*$)
+        :DropComments:S:CommentRE::S::
+
+    Rules are added to states in the underlying statemachine with -a/--add-rules:
+
         :state:test:arg:dst:action:arg:tag
 
     Unnecessary fields may be omitted from the end in all cases, and 'test' and 'action' commands are not case-sensitive.  Rules with no 'state' specified are implicitly added to all states, but evaluated after any explicit rules; rules with no 'dst' remain in the same state ("self-transition")
+
+    Rules can use previously defined rule fragments; if the rule is completely defined by a named rule, like the following, it will be auto-tagged with that name:
+
+        :state:name
 
     More documentation and examples in sled.md:
     https://github.com/inventhouse/statemachine/blob/master/sled.md
@@ -109,10 +117,16 @@ def main(args, env, stdin):
         help="Print help about the available text styles.",
     )
     arg_parser.add_argument(
+        "--print-rules",
+        action="store_true",
+        help="Print the parsed rules, then exit.  Named rules do not get automatically added to the parser; the 'Rules' list are the ones that define the parser.  They are added to their states in order, and earlier rules have precedence over later ones.",
+        # help=argparse.SUPPRESS,
+    )
+    arg_parser.add_argument(
         "--print-args",
         action="store_true",
-        help="Print arguments and parsed rules, then exit.",
-        # help=argparse.SUPPRESS,
+        # help="Print arguments and parsed rules, then exit.",
+        help=argparse.SUPPRESS,
     )
     my_args = arg_parser.parse_args(args[1:])
 
@@ -147,10 +161,12 @@ def main(args, env, stdin):
     if my_args.default_rule:
         rules.append(my_args.default_rule)
 
+    if my_args.print_rules:
+        print(format_rules(named_rules, rules))
+        return 0
+
     if my_args.print_args:
-        n_str = "\n\t".join(f"{n}: {r}" for n,r in named_rules.items())
-        r_str = "\n\t".join(f"{s}: {r}" for s,*r in rules)
-        print(f"* Args:\n\t{my_args}\n* Named Rules:\n\t{n_str}\n* Rules:\n\t{r_str}")
+        print(f"* Args:\n\t{my_args}\n\n{format_rules(named_rules, rules)}")
         return 0
 
     tracer = True  # Use the built-in default tracing
@@ -206,21 +222,18 @@ def parse_rules(l, aliases=None):
         aliases = {}
     rules = []
     for s in l:
+        autotag = None
         state,*parts = split_rule(s)
-        if len(parts) < 2:  # ensure at least 2 fields
-            parts = [*parts, None, None][:2]
-        tag = None
-        if (len(parts) == 2 and parts[0] is not None and parts[0] in aliases):
+        if len(parts) < 1:  # ensure at least 1 field
+            parts = [None,]
+        if (len(parts) == 1 and parts[0] is not None and parts[0] in aliases):
             # get auto-tag for pure-alias rule
-            tag = parts[0]
-            if parts[1] is not None:
-                tag = parts[1]
-                parts[1] = None  # drop the explicit tag for now
+            autotag = parts[0]
 
         parts = resolve_aliases(parts, aliases)
         parts = (parts + [None,] * 6)[:6]  # Expand parts to 6 fields
-        if tag is not None:
-            parts[-1] = tag  # apply saved tag
+        if autotag is not None:
+            parts[-1] = autotag  # apply saved tag
 
         rules.append((state, *parts))
 
@@ -323,6 +336,8 @@ class Actions:
     def s(s):
         ":S:r:\tSub all occurrences of the test pattern with a replacement; formatting is available in the replacement string as describe above."
         # TODO: assert the result is an re.match
+        if s is None:
+            s = ""
         return lambda i, t: t.result.re.sub(s.format(i=i, r=t.result, s=style), i)
 
     def _default(s):
@@ -427,6 +442,13 @@ def style_helper():
     cl = [ "{{s.{n}_bg}}{n}_bg{{s.off}}".format(n=n).format(s=style) for n in COLOR_NAMES]
     h.append("\t" + "  ".join(cl))
     return "\n".join(h)
+
+
+def format_rules(named_rules, rules):
+        n_str = "\n\t".join(f"{n}: {r}" for n,r in named_rules.items())
+        r_str = "\n\t".join(f"{s}: {r}" for s,*r in rules)
+        return f"* Named Rules:\n\t{n_str}\n\n* Rules:\n\t{r_str}"
+
 #####
 
 
