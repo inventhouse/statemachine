@@ -1,0 +1,9 @@
+Named Rules:
+    :Configured:M:.* configured$::F:{i} 🚀:
+    :Failed:M:.* failed$::F:❌ {s.b}{s.red}{i}{s.off}:
+    :Dim:T:::F:{s.dim}{i}{s.off}:
+Add Rules:
+    :start:Configured
+    :start:Failed
+    :start:Dim
+End Rules
