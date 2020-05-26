@@ -1,9 +1,33 @@
+#!/usr/bin/env sled -f
+# Requires sled: https://github.com/inventhouse/statemachine/blob/master/sled
+# Sled documentation: https://github.com/inventhouse/statemachine/blob/master/sled.md
+#
+Usage:  hilighter -h|--help                                     v0.1
+        ...| hilighter [-s|--start MODE]
+        hilighter [-s|--start MODE] < FILE
+
 Named Rules:
-    :Configured:M:.* configured$::F:{i} 🚀:
-    :Failed:M:.* failed$::F:❌ {s.b}{s.red}{i}{s.off}:
-    :Dim:T:::F:{s.dim}{i}{s.off}:
+    :FmtDim:F:{s.dim}{i}{s.off}
+    :FmtDone:F:{i} 🚀
+    :FmtWarn:F:🔔 {s.b}{s.yellow}{i}{s.off}
+    :FmtError:F:❌ {s.b}{s.red}{i}{s.off}
 Add Rules:
     :start:Configured
     :start:Failed
-    :start:Dim
 End Rules
+
+Kuberneties mode:
+Named Rules:
+    :Configured-k8s:M:.* configured$::FmtDone
+    :Failed-k8s:M:.* failed$::FmtError
+Add Rules:
+    :k8s:Configured-k8s
+    :k8s:Failed-k8s
+End Rules
+
+After all other mode-specific rules, add a catch-all so everything still gets printed, just dim.
+Add Rules:
+    ::T:::FmtDim:DimOther
+End Rules
+
+###
