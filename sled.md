@@ -224,6 +224,11 @@ To Do
 - NO: fold DSL into main statemachine? - unless I figure a better way to do tests and actions than hardcoded maps, just no.
     - maybe hoist some of the tests or actions, though
 
+- graphviz visualization of statemachine (both sled and sm.py)
+    - need to work out good heuristics for transition labels, as most are callables (often closures)
+    - keep separate so graphviz stays optional
+
+
 ### Doneyard
 
 - DONE: parse instructions into rules
