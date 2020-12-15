@@ -206,8 +206,9 @@ To Do
   
 - document recommendations for embedding into shell scripts / aliases - use `#!/usr/bin/env sled -f`
     - validate that that shebang line works on linux (if the `-f` is problematic, could change sled to take the rules file as the first argument and a flag for an input file)
-    - DONE: some way for -h to print help from a sled script? - if -f is also specified, print the prologue from the rules file instead of general sled help
+    - DONE: some way for -h to print help from a sled script? - DONE: if -f is also specified, print the prologue from the rules file instead of general sled help
         - DONE: `wrapper` it!
+    - `--make-script` to dump the supplied set of rules into a script template
 
 - HTML escaping and styling?
 
