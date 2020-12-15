@@ -214,6 +214,9 @@ To Do
 
 - input file(s) instead of stdin
 
+- "recursive" evaluation?  Keep evaluating result until an accept (print) or drop action fires; would allow multiple transforms per line, but might be complicated to use
+    - would throw off input count unless there were some way to count re-interpreted inputs separately (4.1, 4.2... or something)
+
 - Error action?  fire the unrecognized handler deliberately
     - would need a reference to the sm, not sure how to do that right now
 - End action?  cease parsing but exit normally (can fake it with an end state and drop-all rule)  Or could be "accept"
