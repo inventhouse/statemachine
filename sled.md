@@ -200,6 +200,8 @@ To Do
 - change trace to take a format so we can use things like `{s.dim}`
 - wrap `--more-help` - hard to make this right
 
+- surface re.sub backreference format (`\g<name>`) in `--more-help` in addition to link to full docs
+
 - generalize comment stripper to take a string like `//`, `;`, or `--`
 - comment stripper / toggle sled program
     - write up as a more sophisticated example
