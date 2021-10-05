@@ -30,7 +30,8 @@ class StateMachine(object):
     TRACE_INPUT = "{state}('{input}')"
     TRACE_RULE = "  {label}: {test} -- {action} --> {dest}"
     TRACE_RESULT = "  {label}: {result}"
-    TRACE_RESPONSE = "    {label}: {response} --> {new_state}"  # REM: Should we split this so the response is added to the context before the new state is computed?
+    TRACE_RESPONSE = "    {response}"
+    TRACE_NEW_STATE = "    --> {new_state}"
     TRACE_UNRECOGNIZED = "\t(No match)"
 
 
@@ -57,8 +58,9 @@ class StateMachine(object):
             if result:
                 self.tracer(StateMachine.TRACE_RESULT, label=l, result=result)
                 response = a(i) if callable(a) else a
+                self.tracer(StateMachine.TRACE_RESPONSE, response=response)
                 dest = d(self.state) if callable(d) else d
-                self.tracer(StateMachine.TRACE_RESPONSE, label=l, result=result, response=response, new_state=dest)
+                self.tracer(StateMachine.TRACE_NEW_STATE, new_state=dest)
                 if dest is not None:
                     assert dest in self.rules, f"Unknown state '{dest}', set tracer to debug"
                     self.state = dest
@@ -105,9 +107,13 @@ class RecentTracer(object):
 
     def format_transition(self, t):
         tp = t.get("tracepoint", "Tracepoint missing")
-        if tp == StateMachine.TRACE_RESULT:
+        if tp == StateMachine.TRACE_NEW_STATE:
+            # Most transitions will be "complete"
             return "{state}('{input}') > {label}: {result} -- {response} --> {new_state}".format_map(t)
-        return tp.format_map(t)
+        if tp == StateMachine.TRACE_UNRECOGNIZED:
+            # Custom unrecognized format
+            return "{state}('{input}') > No match".format_map(t)
+        return f"PARTIAL: {str(t)}"  # If transition somehow did not complete but also is not unrecognized, simply dump it for debugging
 
 
     def format_trace(self):
