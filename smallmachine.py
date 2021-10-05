@@ -30,7 +30,7 @@ class StateMachine(object):
     TRACE_INPUT = "{state}('{input}')"
     TRACE_RULE = "  {label}: {test} -- {action} --> {dest}"
     TRACE_RESULT = "  {label}: {result}"
-    TRACE_RESPONSE = "    {label}: {response} --> {new_state}"
+    TRACE_RESPONSE = "    {label}: {response} --> {new_state}"  # REM: Should we split this so the response is added to the context before the new state is computed?
     TRACE_UNRECOGNIZED = "\t(No match)"
 
 
@@ -86,6 +86,7 @@ class RecentTracer(object):
 
     def __call__(self, tracepoint, **vals):
         # TODO: input counting, loop counting/collapsing
+        vals["tracepoint"] = tracepoint
         if tracepoint == StateMachine.TRACE_INPUT:
             self.transitions.append(vals)
         else:
@@ -95,15 +96,22 @@ class RecentTracer(object):
     def throw(self, i):
         """Raises a `ValueError` for an unrecognized input to a `StateMachine` with a trace of that machine's recent significant transitions."""
         trace_lines = "\n".join(self.format_trace())
+        s = self.transitions[-1].get("state", "State missing")
+        i = self.transitions[-1].get("input", "Input missing")
+        c = "TODO input counting"
         msg = f"Unrecognized input\nStateMachine Traceback (most recent transition last):\n{trace_lines}\nValueError: '{s}' did not recognize {c}: '{i}'"
         raise ValueError(msg)
 
 
+    def format_transition(self, t):
+        tp = t.get("tracepoint", "Tracepoint missing")
+        if tp == StateMachine.TRACE_RESULT:
+            return "{state}('{input}') > {label}: {result} -- {response} --> {new_state}".format_map(t)
+        return tp.format_map(t)
+
+
     def format_trace(self):
-        return [ 
-            "{state}('{input}') > {label}: {result} -- {response} --> {new_state}".format(**t)
-            for t in self.transitions
-        ]
+        return [ self.format_transition(t) for t in self.transitions ]
 
 
 class ContextTracer(object):
