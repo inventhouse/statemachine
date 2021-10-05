@@ -1,0 +1,103 @@
+#!/usr/bin/env python3
+# Copyright (c) 2019-2021 Benjamin Holt -- MIT License
+
+"""
+Tiny, seemingly pointless, interactive fiction game to play with `smallmachine`
+"""
+import random
+# import re
+import time
+
+from smallmachine import StateMachine, RecentTracer, PrefixTracer, MultiTracer
+#####
+
+
+###  Helpers  ###
+def adlib(x, joiner=" "):
+    "Dynamically assemble messages from nested collections of parts.  Tuples are pieces to be strung together, lists are variants to choose among; anything else is used as a string"
+    if type(x) is tuple:
+        return joiner.join([ adlib(i) for i in x ])  # Joining with "|" can be helpful to see how messages get put together
+    if type(x) is list:
+        return adlib(random.choice(x))
+    return str(x)
+#####
+
+
+###  Fixtures  ###
+messages = {
+    "above": ("You are on the deck of a small sailboat on a", ["calm", "serene", "blue", "clear", "glistening",], "sea; an open hatch leads down."),
+    "below": ("You are in the", ["cozy", "homey", "snug",], "cabin of a small boat, with just enough room for a bunk and a tiny desk with a logbook; a hatch leads up."),
+    "sail": ("You", ["set", "adjust", "tack",], "your sail", ["to", "toward", "for"], "{}."),
+    "sleep": ("The bunk is", ["soft", "comfortable", "warm", "cozy",], "and you ", ["rest", "sleep", "snooze", "nap", "doze",], ["well.", "deeply.", "blissfully.", "nicely"]),
+    "log": [("Weather was", ["fair.", "good.", "lovely.",]),
+        (
+            ["Good", "Quick", "Slow",], "sailing",
+            [
+                "today", 
+                ("this", ["morning.", "afternoon.", "evening.",])
+            ]
+        ),
+    ],
+}
+#####
+
+
+###  Actions  ###
+def look_enter(dest):
+    def l(state):
+        s = dest if dest is not None else state
+        print(adlib(messages[s]))
+        return dest
+    return l
+
+def sail_action(_):
+    s = input("Where to? > ")
+    return adlib(messages["sail"]).format(s)
+
+log_entries = [(["Fair", "Nice", "Brisk",], "weather."),]  # Put one bogus entry in 'cos choose (in adlib) can't handle an empty list
+def write_action(_):
+    s = input("What do you want to say? > ")
+    log_entries.append(s)
+    return "Written"
+#####
+
+
+###  World  ###
+rules = {
+    "start": [
+        ("start", lambda _: True, None, look_enter("above")),
+    ],
+    "above": [
+        ("go below", lambda i: i in ["d", "down", "below",], None, look_enter("below")),
+        ("sail", lambda i: i in ["s", "sail",], sail_action, None),
+    ],
+    "below": [
+        ("go above", lambda i: i in ["u", "up", "above",], None, look_enter("above")),
+        ("read log", lambda i: i in ["r", "read", "read logbook",], lambda _: adlib([messages["log"], log_entries]), None),
+        ("write log", lambda i: i in ["w", "write", "log",], write_action, None),
+        ("sleep", lambda i: i in ["s", "sleep", "bunk", "lie down", "lay down", "nap",], lambda *_: adlib(messages["sleep"]), None),
+    ],
+    None: [
+        ("look", lambda i: i in ["l", "look",], None, look_enter(None)),
+        ("anything except crash", lambda i: i != "crash", "Sorry, you can't do that.", None),
+    ]
+}
+
+rt = RecentTracer()
+# rt = RecentTracer(depth=20)  # Keep a deeper trace, -1 for unlimited
+tracer = rt
+# tracer = MultiTracer(PrefixTracer(), rt)  # Complete tracer with default prefix plus RecentTracer
+world = StateMachine(rules, "start", tracer=tracer, unrecognized=rt.throw)
+#####
+
+
+###  Main  ###
+print("Smooth Sailing", flush=True)
+time.sleep(0.1)  # HACK: wait for flush; sometimes prompt prints out-of-order with print output in spite of flush=True
+world(input("Press enter to start. "))
+while True:
+    time.sleep(0.1)  # HACK: wait for flush
+    out = world(input("> "))
+    if out:
+        print(out, flush=True)
+#####
