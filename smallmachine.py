@@ -72,7 +72,7 @@ class StateMachine(object):
 ###  Tracing  ###
 def PrefixTracer(prefix="T>"):
     def t(tp, **vals):
-        print(f"{prefix} {tp.format(vals)}")
+        print(f"{prefix} {tp.format(**vals)}")
     return t
 
 
@@ -101,7 +101,7 @@ class RecentTracer(object):
 
     def format_trace(self):
         return [ 
-            "{state}('{input}') > {label}: {result} -- {response} --> {new_state}".format(t)
+            "{state}('{input}') > {label}: {result} -- {response} --> {new_state}".format(**t)
             for t in self.transitions
         ]
 
