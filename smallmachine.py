@@ -1,8 +1,6 @@
 # StateMachine: Copyright © 2021 Benjamin Holt - MIT License
 
-from collections import deque, namedtuple
-
-
+# from collections import namedtuple
 # Rule = namedtuple("Rule", ("label", "test", "action", "dest"),)
 
 class StateMachine(object):
@@ -17,7 +15,7 @@ class StateMachine(object):
 
     Tracer is an optional callable that takes a message and any values to format into it, and is called at critical points in the input processing to produce logs that are extremely helpful when debugging; for example 'lambda msg, **vals: print(msg.format(**vals))'.  Messages are distinct constants which can be used for selective verbosity, among other things.  Tracer values can be collected to print later or provide context for sophisticated tests or actions; see the RecentTracer and ContextTracer for examples.
 
-    The unrecognized handler is an optional callable that takes input that did not match any rule in the current state nor the implicitly added rules from the None state.  By default it returns None; setting this to raise makes the machine more strict which can help debugging: 'def unexpected_input(i): raise ValueError(f"'Input '{i}' did not match, set tracer to debug")'
+    The unrecognized handler is an optional callable that takes input that did not match any rule in the current state nor the implicitly added rules from the None state.  By default it returns None; setting this to raise makes the machine more strict which can help debugging: 'def unexpected_input(i): raise ValueError(f"'Input '{i}' did not match, set tracer to debug")'.  Using RecentTracer and setting this to its `.throw` is particularly good for this.
 
     Public attributes can be manipulated after init; for example a rule action could set the state machine's tracer to start or stop logging of the machine's operation.
     """
@@ -72,6 +70,12 @@ class StateMachine(object):
 
 
 ###  Tracing  ###
+def PrefixTracer(prefix="T>"):
+    def t(tp, **vals):
+        print(f"{prefix} {tp.format(vals)}")
+    return t
+
+
 from collections import deque
 class RecentTracer(object):
     def __init__(self, depth=10):
@@ -119,6 +123,8 @@ class ContextTracer(object):
 
 
     def __getattr__(self, attr):
+        if attr not in self.context:
+            raise AttributeError(f"context currently has no attribute '{attr}'")
         return self.context[attr]
 
 
