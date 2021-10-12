@@ -84,15 +84,29 @@ class RecentTracer(object):
         if depth < 0:
             depth = None  # Unlimited depth
         self.transitions = deque(maxlen=depth)
+        self.input_count = 0
 
 
     def __call__(self, tracepoint, **vals):
-        # TODO: input counting, loop counting/collapsing
         vals["tracepoint"] = tracepoint
         if tracepoint == StateMachine.TRACE_INPUT:
+            self.collapse_loops()  # Retroactively collapse loops so the start of an unrecognized input will be a new entry
+            self.input_count += 1
+            vals["input_count"] = self.input_count
             self.transitions.append(vals)
         else:
             self.transitions[-1].update(vals)
+
+
+    def collapse_loops(self):
+        if len(self.transitions) < 2:
+            return  # No loop to collapse
+        previous = self.transitions[-2]
+        latest = self.transitions[-1]
+        if previous["state"] == latest["state"]:
+            latest["loop_count"] = previous.get("loop_count", 0) + 1
+            self.transitions.pop()
+            self.transitions[-1].update(latest)
 
 
     def throw(self, i):
@@ -100,7 +114,7 @@ class RecentTracer(object):
         trace_lines = "\n".join(self.format_trace())
         s = self.transitions[-1].get("state", "State missing")
         i = self.transitions[-1].get("input", "Input missing")
-        c = "TODO input counting"
+        c = self.transitions[-1].get("input_count", "Count missing")
         msg = f"Unrecognized input\nStateMachine Traceback (most recent transition last):\n{trace_lines}\nValueError: '{s}' did not recognize {c}: '{i}'"
         raise ValueError(msg)
 
@@ -109,10 +123,11 @@ class RecentTracer(object):
         tp = t.get("tracepoint", "Tracepoint missing")
         if tp == StateMachine.TRACE_NEW_STATE:
             # Most transitions will be "complete"
-            return "{state}('{input}') > {label}: {result} -- {response} --> {new_state}".format_map(t)
+            looped = "    ({loop_count} loops in '{state}' elided)\n".format_map(t) if "loop_count" in t else ""
+            return looped + "{input_count}: {state}('{input}') > {label}: {result} -- {response} --> {new_state}".format_map(t)
         if tp == StateMachine.TRACE_UNRECOGNIZED:
             # Custom unrecognized format
-            return "{state}('{input}') > No match".format_map(t)
+            return "{input_count}: {state}('{input}') > No match".format_map(t)
         return f"PARTIAL: {str(t)}"  # If transition somehow did not complete but also is not unrecognized, simply dump it for debugging
 
 

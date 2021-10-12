@@ -28,7 +28,7 @@ messages = {
     "above": ("You are on the deck of a small sailboat on a", ["calm", "serene", "blue", "clear", "glistening",], "sea; an open hatch leads down."),
     "below": ("You are in the", ["cozy", "homey", "snug",], "cabin of a small boat, with just enough room for a bunk and a tiny desk with a logbook; a hatch leads up."),
     "sail": ("You", ["set", "adjust", "tack",], "your sail", ["to", "toward", "for"], "{}."),
-    "sleep": ("The bunk is", ["soft", "comfortable", "warm", "cozy",], "and you ", ["rest", "sleep", "snooze", "nap", "doze",], ["well.", "deeply.", "blissfully.", "nicely"]),
+    "sleep": ("The bunk is", ["soft", "comfortable", "warm", "cozy",], "and you", ["rest", "sleep", "snooze", "nap", "doze",], ["well.", "deeply.", "blissfully.", "nicely"]),
     "log": [("Weather was", ["fair.", "good.", "lovely.",]),
         (
             ["Good", "Quick", "Slow",], "sailing",
@@ -86,7 +86,7 @@ rules = {
 rt = RecentTracer()
 # rt = RecentTracer(depth=20)  # Keep a deeper trace, -1 for unlimited
 tracer = rt
-tracer = MultiTracer(PrefixTracer(), rt)  # Complete tracer with default prefix plus RecentTracer
+# tracer = MultiTracer(PrefixTracer(), rt)  # Complete tracer with default prefix plus RecentTracer
 world = StateMachine(rules, "start", tracer=tracer, unrecognized=rt.throw)
 #####
 
