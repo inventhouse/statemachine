@@ -8,7 +8,7 @@ import random
 # import re
 import time
 
-from smallmachine import StateMachine, RecentTracer, PrefixTracer, MultiTracer
+from smallmachine import in_test, StateMachine, RecentTracer, PrefixTracer, MultiTracer
 #####
 
 
@@ -68,17 +68,17 @@ rules = {
         ("start", lambda _: True, None, look_enter("above")),
     ],
     "above": [
-        ("go below", lambda i: i in ["d", "down", "below",], None, look_enter("below")),
-        ("sail", lambda i: i in ["s", "sail",], sail_action, None),
+        ("go below", in_test(["d", "down", "below",]), None, look_enter("below")),
+        ("sail", in_test(["s", "sail",]), sail_action, None),
     ],
     "below": [
-        ("go above", lambda i: i in ["u", "up", "above",], None, look_enter("above")),
-        ("read log", lambda i: i in ["r", "read", "read logbook",], lambda _: adlib([messages["log"], log_entries]), None),
-        ("write log", lambda i: i in ["w", "write", "log",], write_action, None),
-        ("sleep", lambda i: i in ["s", "sleep", "bunk", "lie down", "lay down", "nap",], lambda *_: adlib(messages["sleep"]), None),
+        ("go above", in_test(["u", "up", "above",]), None, look_enter("above")),
+        ("read log", in_test(["r", "read", "read logbook",]), lambda _: adlib([messages["log"], log_entries]), None),
+        ("write log", in_test(["w", "write", "log",]), write_action, None),
+        ("sleep", in_test(["s", "sleep", "bunk", "lie down", "lay down", "nap",]), lambda *_: adlib(messages["sleep"]), None),
     ],
     None: [
-        ("look", lambda i: i in ["l", "look",], None, look_enter(None)),
+        ("look", in_test(["l", "look",]), None, look_enter(None)),
         ("anything except crash", lambda i: i != "crash", "Sorry, you can't do that.", None),
     ]
 }
@@ -86,7 +86,7 @@ rules = {
 rt = RecentTracer()
 # rt = RecentTracer(depth=20)  # Keep a deeper trace, -1 for unlimited
 tracer = rt
-# tracer = MultiTracer(PrefixTracer(), rt)  # Complete tracer with default prefix plus RecentTracer
+tracer = MultiTracer(PrefixTracer(), rt)  # Complete tracer with default prefix plus RecentTracer
 world = StateMachine(rules, "start", tracer=tracer, unrecognized=rt.throw)
 #####
 

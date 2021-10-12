@@ -149,3 +149,17 @@ def MultiTracer(*tracers):
             t(tp, **vals)
     return mt
 #####
+
+
+###  Tests  ###
+class in_test(object):
+    "Callable to test if input is in a collection and format a nice __str__"
+    def __init__(self, in_list):
+        self.in_list = in_list
+
+    def __call__(self, i):
+        return i in self.in_list
+
+    def __str__(self):
+        return f"i in {self.in_list}"
+#####
