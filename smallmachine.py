@@ -141,11 +141,13 @@ class ContextTracer(object):
     """
     def __init__(self):
         self.context = {}
+        self.input_count = 0
 
 
     def __call__(self, tracepoint, **vals):
-        # TODO: input counting
         if tracepoint == StateMachine.TRACE_INPUT:
+            self.input_count += 1
+            vals["input_count"] = self.input_count
             self.context = vals
         else:
             self.context.update(vals)
