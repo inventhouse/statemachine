@@ -1,4 +1,4 @@
-# StateMachine: Copyright © 2021 Benjamin Holt - MIT License
+# StateMachine: Copyright © 2021-2022 Benjamin Holt - MIT License
 
 # from collections import namedtuple
 # Rule = namedtuple("Rule", ("label", "test", "action", "dest"),)
@@ -15,7 +15,7 @@ class StateMachine(object):
 
     Tracer is an optional callable that takes a message and any values to format into it, and is called at critical points in the input processing to produce logs that are extremely helpful when debugging; for example 'lambda msg, **vals: print(msg.format(**vals))'.  Messages are distinct constants which can be used for selective verbosity, among other things.  Tracer values can be collected to print later or provide context for sophisticated tests or actions; see the RecentTracer and ContextTracer for examples.
 
-    The unrecognized handler is an optional callable that takes input that did not match any rule in the current state nor the implicitly added rules from the None state.  By default it returns None; setting this to raise makes the machine more strict which can help debugging: 'def unexpected_input(i): raise ValueError(f"'Input '{i}' did not match, set tracer to debug")'.  Using RecentTracer and setting this to its `.throw` is particularly good for this.
+    The unrecognized handler is an optional callable that takes input that did not match any rule in the current state nor the implicitly added rules from the None state.  By default it returns None; setting this to raise makes the machine more strict which can help debugging: 'def unexpected_input(i): raise ValueError(f"'Input '{i}' did not match, set tracer to debug")'.  Using RecentTracer and setting this to its '.throw' is particularly good for this.
 
     Public attributes can be manipulated after init; for example a rule action could set the state machine's tracer to start or stop logging of the machine's operation.
     """
@@ -72,14 +72,48 @@ class StateMachine(object):
 
 
 ###  Tracing  ###
-def PrefixTracer(prefix="T>"):
+def PrefixTracer(prefix="T>", printer=print):
+    "Prints tracepoints with a distinctive prefix and, optionally, to a separate destination than other output"
     def t(tp, **vals):
-        print(f"{prefix} {tp.format(**vals)}")
+        printer(f"{prefix} {tp.format(**vals)}")
     return t
+
+
+def MultiTracer(*tracers):
+    "Combines multiple tracers"
+    def mt(tp, **vals):
+        for t in tracers:
+            t(tp, **vals)
+    return mt
+
+
+class ContextTracer(object):
+    "Collects the context (e.g. current state, rule label, test result, action, destination, etc) of a StateMachine evaluating an input."
+    def __init__(self):
+        self.context = {}
+        self.input_count = 0
+
+
+    def __call__(self, tracepoint, **vals):
+        if tracepoint == StateMachine.TRACE_INPUT:
+            self.input_count += 1
+            vals["input_count"] = self.input_count
+            self.context = vals
+        else:
+            self.context.update(vals)
+
+
+    def __getattr__(self, attr):
+        if attr not in self.context:
+            raise AttributeError(f"context currently has no attribute '{attr}'")
+        return self.context[attr]
 
 
 from collections import deque
 class RecentTracer(object):
+    """Keeps a limited trace of significant state machine transitions to provide a recent "traceback" particularly for understanding unrecognized input by setting the unrecognized handler to the .throw bound method.
+
+    Only "successful" transitions are recorded, and if a transition stays in the same state, those are counted but only the last is retained."""
     def __init__(self, depth=10):
         if depth < 0:
             depth = None  # Unlimited depth
@@ -90,7 +124,7 @@ class RecentTracer(object):
     def __call__(self, tracepoint, **vals):
         vals["tracepoint"] = tracepoint
         if tracepoint == StateMachine.TRACE_INPUT:
-            self.collapse_loops()  # Retroactively collapse loops so the start of an unrecognized input will be a new entry
+            self.fold_loop()  # Retroactively collapse looped entries so the start of an unrecognized input will be a new entry
             self.input_count += 1
             vals["input_count"] = self.input_count
             self.transitions.append(vals)
@@ -98,7 +132,7 @@ class RecentTracer(object):
             self.transitions[-1].update(vals)
 
 
-    def collapse_loops(self):
+    def fold_loop(self):
         if len(self.transitions) < 2:
             return  # No loop to collapse
         previous = self.transitions[-2]
@@ -133,42 +167,10 @@ class RecentTracer(object):
 
     def format_trace(self):
         return [ self.format_transition(t) for t in self.transitions ]
-
-
-class ContextTracer(object):
-    """
-    Collects the context (e.g. current state, rule label, test result, destination, etc) of a StateMachine evaluating an input.
-    """
-    def __init__(self):
-        self.context = {}
-        self.input_count = 0
-
-
-    def __call__(self, tracepoint, **vals):
-        if tracepoint == StateMachine.TRACE_INPUT:
-            self.input_count += 1
-            vals["input_count"] = self.input_count
-            self.context = vals
-        else:
-            self.context.update(vals)
-
-
-    def __getattr__(self, attr):
-        if attr not in self.context:
-            raise AttributeError(f"context currently has no attribute '{attr}'")
-        return self.context[attr]
-
-
-def MultiTracer(*tracers):
-    "Combines multiple tracers"
-    def mt(tp, **vals):
-        for t in tracers:
-            t(tp, **vals)
-    return mt
 #####
 
 
-###  Tests  ###
+###  Test Helpers  ###
 class in_test(object):
     "Callable to test if input is in a collection and format a nice __str__"
     def __init__(self, in_list):
