@@ -5,7 +5,7 @@ from collections import deque
 
 class StateMachine(object):
     """
-    Create a state machine instance
+    State machine engine that makes minimal assumptions but includes some nice conveniences.
     
     The rules dictionary maps each state to a list of rule tuples, each of which includes a label, a test, an action, and a destination; more about rule elements in the __call__ documentation.
 

@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 # Copyright (c) 2019 Benjamin Holt -- MIT License
 
+"""DEPRECATED: smallmachine.py is a GREATLY streamlined, even more flexible, rewrite; no further development will be done on this version"""
+
 """General-purpose state machine engine with extras and tracing."""
 
 
