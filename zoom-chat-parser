@@ -3,8 +3,6 @@
 
 from collections import Counter
 from dataclasses import dataclass, field
-import re
-# from time import time
 
 import smallmachine as sm
 
@@ -137,7 +135,6 @@ def format_message(message, level=0):
 
 
 if __name__ == "__main__":
-    # from pprint import pprint
     import sys
     chat_parser = ChatParser()
     chat_file = sys.argv[1] if len(sys.argv) > 1 else None
@@ -146,7 +143,7 @@ if __name__ == "__main__":
             chat_parser(f)
     else:
         chat_parser(chat_lines.split("\n"))
-    # pprint(chat_parser.messages)
+
     for m in chat_parser.messages:
         if m.primary_message_prefix is None:
             # Threaded messages will be formatted-in by their primary
