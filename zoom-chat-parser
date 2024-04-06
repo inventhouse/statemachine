@@ -71,7 +71,7 @@ class ChatParser:
         self.parser = sm.StateMachine(
             chat_rules, "start", 
             tracer=self.ctx,
-            unrecognized=self.ctx.throw,
+            unrecognized=self.ctx.reject,
         )
         # self.parser.tracer = sm.MultiTracer(sm.PrefixTracer(), self.parser.tracer)  # Add debugging tracer
 

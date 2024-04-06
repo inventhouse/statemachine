@@ -15,7 +15,7 @@ class StateMachine(object):
 
     Tracer is an optional callable that takes a tracepoint string and its associated values, and is called at critical points in the input processing to follow the internal operation of the machine.  A simple tracer can produce logs that are extremely helpful when debugging, see PrefixTracer for an example.  Tracepoints are distinct constants which can be used by more advanced tracers for selective verbosity, state management, and other things.  Tracer values can be collected for later use or to provide context for more sophisticated tests or actions; see ContextTracer.  Tracers can be stacked using MultiTracer.
 
-    The unrecognized handler is an optional callable that takes input that did not match any rule in the current state nor the implicitly added rules from the None state.  By default it returns None; setting this to raise makes the machine more strict which can help debugging; using ContextTracer's 'ctx.throw' is particularly good for this.
+    The unrecognized handler is an optional callable that takes input that did not match any rule in the current state nor the implicitly added rules from the None state.  By default it returns None; setting this to raise makes the machine more strict which can help debugging; using ContextTracer's 'ctx.reject' is particularly good for this.
 
     Public attributes can be manipulated after init; for example a rule action could set the state machine's tracer to start or stop logging of the machine's operation.
     """
@@ -165,7 +165,7 @@ class ContextTracer(object):
         return self.context[attr]
 
     ## Handle unrecognized
-    def throw(self, i):
+    def reject(self, i):
         """Raises a `ValueError` for an unrecognized input to a `StateMachine` with a trace of that machine's recent significant transitions."""
         ctx = self.context
         trace_lines = "\n".join(self.format_trace())
