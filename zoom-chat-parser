@@ -54,25 +54,24 @@ class ChatParser:
             ],
             "message": [
                 ("reaction", reaction_test, self.add_reaction, "start"),
-                ("reply", reply_test, self.add_reply, "reply blank"),
-                ("line", message_line_test, self.add_message_line, "message lines"),
+                ("reply", reply_test, self.add_reply, "reply_blank"),
+                ("line", message_line_test, self.add_message_line, "message_lines"),
             ],
-            "reply blank": [
+            "reply_blank": [
                 # Blank line between "Replying to" and message is part of the format, not part of the message
-                ("blank", blank_test, None, "message lines"),
+                ("blank", blank_test, None, "message_lines"),
             ],
-            "message lines": [
+            "message_lines": [
                 ("header", header_test, self.begin_message, "message"),
                 ("line", message_line_test, self.add_message_line, None),
             ],
         }
 
         self.ctx = sm.ContextTracer()
-        rt = sm.RecentTracer()
         self.parser = sm.StateMachine(
             chat_rules, "start", 
-            tracer=sm.MultiTracer(self.ctx, rt), 
-            unrecognized=rt.throw
+            tracer=self.ctx,
+            unrecognized=self.ctx.throw,
         )
         # self.parser.tracer = sm.MultiTracer(sm.PrefixTracer(), self.parser.tracer)  # Add debugging tracer
 

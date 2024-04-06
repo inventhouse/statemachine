@@ -13,9 +13,9 @@ class StateMachine(object):
 
     State is simply the starting state for the machine.
 
-    Tracer is an optional callable that takes a tracepoint string and its associated values, and is called at critical points in the input processing to follow the internal operation of the machine.  A simple tracer can produce logs that are extremely helpful when debugging, see PrefixTracer for an example.  Tracepoints are distinct constants which can be used by more advanced tracers for selective verbosity, state management, and other things.  Tracer values can be collected to print later or provide context for more sophisticated tests or actions; see the RecentTracer and ContextTracer for examples.  Tracers can be stacked using MultiTracer.
+    Tracer is an optional callable that takes a tracepoint string and its associated values, and is called at critical points in the input processing to follow the internal operation of the machine.  A simple tracer can produce logs that are extremely helpful when debugging, see PrefixTracer for an example.  Tracepoints are distinct constants which can be used by more advanced tracers for selective verbosity, state management, and other things.  Tracer values can be collected for later use or to provide context for more sophisticated tests or actions; see ContextTracer.  Tracers can be stacked using MultiTracer.
 
-    The unrecognized handler is an optional callable that takes input that did not match any rule in the current state nor the implicitly added rules from the None state.  By default it returns None; setting this to raise makes the machine more strict which can help debugging: 'def unexpected_input(i): raise ValueError(f"'Input '{i}' did not match, set tracer to debug")'.  Using RecentTracer and setting this to its '.throw' is particularly good for this.
+    The unrecognized handler is an optional callable that takes input that did not match any rule in the current state nor the implicitly added rules from the None state.  By default it returns None; setting this to raise makes the machine more strict which can help debugging; using ContextTracer's 'ctx.throw' is particularly good for this.
 
     Public attributes can be manipulated after init; for example a rule action could set the state machine's tracer to start or stop logging of the machine's operation.
     """
@@ -87,12 +87,14 @@ def MultiTracer(*tracers):
     return mt
 
 
+from collections import deque
 class ContextTracer(object):
-    """Collects the context of a StateMachine as it evaluates an input.
+    """Collects the context and history of a StateMachine as it evaluates an input; use the ctx.throw bound method to raise ValueError with a context history trace on unrecognized input.
 
     ContextTracer attributes are added and updated as the machine processes as follows:
 
     Input received:
+    - tracepoint: The current tracepoint, updated at each step
     - state: The current state
     - input: The raw input
     - input_count: The count of inputs received, the first input is 1
@@ -117,20 +119,40 @@ class ContextTracer(object):
 
     Attributes can be tested for with e.g. '"result" in ctx' or retrieved leniently with 'ctx.get("result" [, default])'
     """
-    def __init__(self):
+    def __init__(self, history=10, compact=True):
         self.context = {}
         self.input_count = 0
+        if history < 0:
+            history = None  # Unlimited depth
+        self.history = deque(maxlen=history)
+        self.compact = compact
 
-    def __call__(self, tracepoint, **vals):
+    ## Collect context & history
+    def __call__(self, tracepoint, **values):
+        values["tracepoint"] = tracepoint
         if tracepoint == StateMachine.TRACE_INPUT:
             self.input_count += 1
-            vals["input_count"] = self.input_count
-            self.context = vals
+            values["input_count"] = self.input_count
+            self.context = values
         else:
             if tracepoint == StateMachine.TRACE_UNRECOGNIZED:
-                vals["unrecognized"] = StateMachine.TRACE_UNRECOGNIZED.strip()
-            self.context.update(vals)
+                values["unrecognized"] = StateMachine.TRACE_UNRECOGNIZED.strip()
+            self.context.update(values)
 
+        if self.compact and tracepoint == StateMachine.TRACE_NEW_STATE:
+            self.fold_loop()
+        if tracepoint in (StateMachine.TRACE_NEW_STATE, StateMachine.TRACE_UNRECOGNIZED):
+            self.history.append(self.context)
+
+    def fold_loop(self):
+        if self.history:
+            previous = self.history[-1]
+            latest = self.context
+            if previous["state"] == latest["state"]:
+                latest["loop_count"] = previous.get("loop_count", 0) + 1
+                self.history.pop()
+
+    ## Access context
     def get(self, key, default=None):
         return self.context.get(key, default)
 
@@ -142,65 +164,31 @@ class ContextTracer(object):
             raise AttributeError(f"context currently has no attribute '{attr}'")
         return self.context[attr]
 
-
-from collections import deque
-class RecentTracer(object):
-    """Keeps a limited trace of significant state machine transitions to provide a recent "traceback" particularly for understanding unrecognized input by setting the unrecognized handler to the .throw bound method.
-
-    Only "successful" transitions are recorded, and if a transition stays in the same state, those are counted but only the last is retained."""
-    def __init__(self, depth=10):
-        if depth < 0:
-            depth = None  # Unlimited depth
-        self.transitions = deque(maxlen=depth)
-        self.input_count = 0
-
-
-    def __call__(self, tracepoint, **vals):
-        vals["tracepoint"] = tracepoint
-        if tracepoint == StateMachine.TRACE_INPUT:
-            self.fold_loop()  # Retroactively collapse looped entries so the start of an unrecognized input will be a new entry
-            self.input_count += 1
-            vals["input_count"] = self.input_count
-            self.transitions.append(vals)
-        else:
-            self.transitions[-1].update(vals)
-
-
-    def fold_loop(self):
-        if len(self.transitions) < 2:
-            return  # No loop to collapse
-        previous = self.transitions[-2]
-        latest = self.transitions[-1]
-        if previous["state"] == latest["state"]:
-            latest["loop_count"] = previous.get("loop_count", 0) + 1
-            self.transitions.pop()
-            self.transitions[-1].update(latest)
-
-
+    ## Handle unrecognized
     def throw(self, i):
         """Raises a `ValueError` for an unrecognized input to a `StateMachine` with a trace of that machine's recent significant transitions."""
+        ctx = self.context
         trace_lines = "\n".join(self.format_trace())
-        s = self.transitions[-1].get("state", "State missing")
-        i = self.transitions[-1].get("input", "Input missing")
-        c = self.transitions[-1].get("input_count", "Count missing")
+        s = ctx.get("state", "State missing")
+        i = ctx.get("input", "Input missing")
+        c = ctx.get("input_count", "Count missing")
         msg = f"Unrecognized input\nStateMachine Traceback (most recent transition last):\n{trace_lines}\nValueError: '{s}' did not recognize {c}: '{i}'"
         raise ValueError(msg)
 
-
+    ## Formatting
     def format_transition(self, t):
         tp = t.get("tracepoint", "Tracepoint missing")
         if tp == StateMachine.TRACE_NEW_STATE:
             # Most transitions will be "complete"
             looped = "    ({loop_count} loops in '{state}' elided)\n".format_map(t) if "loop_count" in t else ""
-            return looped + "{input_count}: {state}('{input}') > {label}: {result} -- {response} --> {new_state}".format_map(t)
+            return looped + "{input_count}: {state}('{input}') > {label}: {result} -- {response} --> {new_state}".format(**t)
         if tp == StateMachine.TRACE_UNRECOGNIZED:
-            # Custom unrecognized format
-            return "{input_count}: {state}('{input}') > No match".format_map(t)
+            # Unrecognized has its own format
+            return "{input_count}: {state}('{input}') > No match".format(**t)
         return f"PARTIAL: {str(t)}"  # If transition somehow did not complete but also is not unrecognized, simply dump it for debugging
 
-
     def format_trace(self):
-        return [ self.format_transition(t) for t in self.transitions ]
+        return [ self.format_transition(t) for t in self.history ]
 #####
 
 
