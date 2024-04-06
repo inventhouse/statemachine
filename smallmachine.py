@@ -1,4 +1,4 @@
-# StateMachine: Copyright © 2021-2022 Benjamin Holt - MIT License
+# SmallMachine: Copyright © 2021-2024 Benjamin Holt - MIT License
 
 # from collections import namedtuple
 # Rule = namedtuple("Rule", ("label", "test", "action", "dest"),)
@@ -19,14 +19,14 @@ class StateMachine(object):
 
     Public attributes can be manipulated after init; for example a rule action could set the state machine's tracer to start or stop logging of the machine's operation.
     """
-    def __init__(self, rules, state, tracer=lambda m, *v: None, unrecognized=lambda _: None):
+    def __init__(self, rules, state, tracer=lambda m, **v: None, unrecognized=lambda _: None):
         self.rules = rules  # { state: [(label, test, action, state), ...], ...}
         self.state = state
         self.tracer = tracer
         self.unrecognized = unrecognized
 
 
-    # The formatter keys are all distict so they can be aggregated with dict.update; see ContextTracer for an example implementation
+    # The formatter keys are all distinct so they can be aggregated with dict.update; see ContextTracer for an example implementation
     TRACE_INPUT = "{state}('{input}')"
     TRACE_RULE = "  {label}: {test} -- {action} --> {dest}"
     TRACE_RESULT = "  {label}: {result}"
@@ -171,6 +171,31 @@ class RecentTracer(object):
 
 
 ###  Test Helpers  ###
+import re
+class match_test(object):
+    "Callable to match input with a regex and format a nice __str__"
+    def __init__(self, test_re_str):
+        self.test_re = re.compile(test_re_str)
+
+    def __call__(self, i):
+        return self.test_re.match(i)
+
+    def __str__(self):
+        return f"'{self.test_re.pattern}'.match(i)"
+
+
+class search_test(object):
+    "Callable to search input with a regex and format a nice __str__"
+    def __init__(self, test_re_str):
+        self.test_re = re.compile(test_re_str)
+
+    def __call__(self, i):
+        return self.test_re.search(i)
+
+    def __str__(self):
+        return f"'{self.test_re.pattern}'.search(i)"
+
+
 class in_test(object):
     "Callable to test if input is in a collection and format a nice __str__"
     def __init__(self, in_list):
