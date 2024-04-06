@@ -35,6 +35,7 @@ chat_lines = """
     Reacted to "We already do" with 😂
 """
 
+
 class ChatParser:
     def __init__(self) -> None:
         # Store messages LIFO to make finding previous message easy for replies and reactions

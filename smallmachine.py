@@ -1,7 +1,7 @@
 # SmallMachine: Copyright © 2021-2024 Benjamin Holt - MIT License
 
-# from collections import namedtuple
-# Rule = namedtuple("Rule", ("label", "test", "action", "dest"),)
+from collections import deque
+
 
 class StateMachine(object):
     """
@@ -25,7 +25,6 @@ class StateMachine(object):
         self.tracer = tracer
         self.unrecognized = unrecognized
 
-
     # The formatter keys are all distinct so they can be aggregated with dict.update; see ContextTracer for an example implementation
     TRACE_INPUT = "{state}('{input}')"
     TRACE_RULE = "  {label}: {test} -- {action} --> {dest}"
@@ -33,7 +32,6 @@ class StateMachine(object):
     TRACE_RESPONSE = "    {response}"
     TRACE_NEW_STATE = "    --> {new_state}"
     TRACE_UNRECOGNIZED = "\t(No match)"
-
 
     def __call__(self, i):
         """
@@ -87,7 +85,6 @@ def MultiTracer(*tracers):
     return mt
 
 
-from collections import deque
 class ContextTracer(object):
     """Collects the context and history of a StateMachine as it evaluates an input; use the ctx.throw bound method to raise ValueError with a context history trace on unrecognized input.
 
