@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Copyright (c) 2019-2021 Benjamin Holt -- MIT License
+# Copyright (c) 2019-2024 Benjamin Holt -- MIT License
 
 """
 Tiny, seemingly pointless, interactive fiction game to play with `smallmachine`
