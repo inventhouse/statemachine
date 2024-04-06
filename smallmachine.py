@@ -114,6 +114,8 @@ class ContextTracer(object):
 
     All rules failed:
     - unrecognized: constant "(No match)"
+
+    Attributes can be tested for with e.g. '"result" in ctx' or retrieved leniently with 'ctx.get("restlt [, default])'
     """
     def __init__(self):
         self.context = {}
