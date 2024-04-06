@@ -7,13 +7,13 @@ class StateMachine(object):
     """
     Create a state machine instance
     
-    The rules dictionary maps each state to a list of rule tuples, each of which includes a label, a test, an action, and a destination; more about rule elements in the call documentation.
+    The rules dictionary maps each state to a list of rule tuples, each of which includes a label, a test, an action, and a destination; more about rule elements in the __call__ documentation.
 
     Rules associated with the special None state are implicitly added to all states' rules, to be evaluated after explicit rules.
 
     State is simply the starting state for the machine.
 
-    Tracer is an optional callable that takes a message and any values to format into it, and is called at critical points in the input processing to produce logs that are extremely helpful when debugging; for example 'lambda msg, **vals: print(msg.format(**vals))'.  Messages are distinct constants which can be used for selective verbosity, among other things.  Tracer values can be collected to print later or provide context for sophisticated tests or actions; see the RecentTracer and ContextTracer for examples.
+    Tracer is an optional callable that takes a tracepoint string and its associated values, and is called at critical points in the input processing to follow the internal operation of the machine.  A simple tracer can produce logs that are extremely helpful when debugging, see PrefixTracer for an example.  Tracepoints are distinct constants which can be used by more advanced tracers for selective verbosity, state management, and other things.  Tracer values can be collected to print later or provide context for more sophisticated tests or actions; see the RecentTracer and ContextTracer for examples.  Tracers can be stacked using MultiTracer.
 
     The unrecognized handler is an optional callable that takes input that did not match any rule in the current state nor the implicitly added rules from the None state.  By default it returns None; setting this to raise makes the machine more strict which can help debugging: 'def unexpected_input(i): raise ValueError(f"'Input '{i}' did not match, set tracer to debug")'.  Using RecentTracer and setting this to its '.throw' is particularly good for this.
 
@@ -88,11 +88,36 @@ def MultiTracer(*tracers):
 
 
 class ContextTracer(object):
-    "Collects the context (e.g. current state, rule label, test result, action, destination, etc) of a StateMachine evaluating an input."
+    """Collects the context of a StateMachine as it evaluates an input.
+
+    ContextTracer attributes are added and updated as the machine processes as follows:
+
+    Input received:
+    - state: The current state
+    - input: The raw input
+    - input_count: The count of inputs received, the first input is 1
+
+    Rule evaluation begins:
+    - label: The label of the rule being evaluated, usually a name or a distinct tag
+    - test: The test callable or literal that will be evaluated
+    - action: The action callable or literal that will be evaluated if the test succeeds
+    - dest: The destination callable or literal that will define the new state if the test succeeds
+
+    Rule succeeds:
+    - result: The result produced by a successful test (e.g. the match object from a regex)
+
+    Action evaluated:
+    - response: The value produced by evaluating the action of a successful rule
+
+    Destination evaluated:
+    - new_state: The value produced by evaluating the destination of a successful rule
+
+    All rules failed:
+    - unrecognized: constant "(No match)"
+    """
     def __init__(self):
         self.context = {}
         self.input_count = 0
-
 
     def __call__(self, tracepoint, **vals):
         if tracepoint == StateMachine.TRACE_INPUT:
@@ -100,8 +125,15 @@ class ContextTracer(object):
             vals["input_count"] = self.input_count
             self.context = vals
         else:
+            if tracepoint == StateMachine.TRACE_UNRECOGNIZED:
+                vals["unrecognized"] = StateMachine.TRACE_UNRECOGNIZED.strip()
             self.context.update(vals)
 
+    def get(self, key, default=None):
+        return self.context.get(key, default)
+
+    def __contains__(self, key):
+        return key in self.context
 
     def __getattr__(self, attr):
         if attr not in self.context:
