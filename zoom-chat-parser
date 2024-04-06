@@ -37,12 +37,13 @@ chat_lines = """
 
 class ChatParser:
     def __init__(self) -> None:
-        self.messages = deque()
+        # Store messages LIFO to make finding previous message easy for replies and reactions
+        self.message_stack = deque()
         self.current_message = None
 
         header_test = sm.match_test(r"(?P<time_str>(?P<hour>\d{2}):(?P<minute>\d{2}):(?P<second>\d{2})) From (?P<from>.+?) to (?P<to>.+?):")
         reply_test = sm.match_test(r'\s+Replying to "(?P<prefix>.+?)([.]{3})?"')
-        blank_test = sm.match_test(r"\s*")
+        blank_test = sm.match_test(r"\s*$")
         reaction_test = sm.match_test(r'\s+Reacted to "(?P<prefix>.+?)([.]{3})?" with (?P<reaction>.+?)')
         message_line_test = sm.match_test(r"\s+(?P<line>.*)")
 
@@ -78,7 +79,7 @@ class ChatParser:
     ###  Actions  ###
     def begin_message(self, i):
         if self.current_message:
-            self.messages.appendleft(self.current_message)
+            self.message_stack.appendleft(self.current_message)
 
         result = self.ctx.result
         self.current_message = ChatMessage(
@@ -109,10 +110,22 @@ class ChatParser:
 
     ###  Helpers  ###
     def find_previous_message(self, prefix):
-        for m in self.messages:
+        for m in self.message_stack:
             if m.message_lines and m.message_lines[0].startswith(prefix):
                 return m
         return None
+
+    @property
+    def threads(self):
+        "Returns message threads, oldest first"
+        if not self.message_stack:
+            return ()
+        return (
+            m for
+            m in reversed(chat_parser.message_stack)
+            # Threaded messages are included in the primary message
+            if m.primary_message_prefix is None
+        )
 
     def __call__(self, lines):
         for l in lines:
@@ -120,7 +133,7 @@ class ChatParser:
 
 
 INDENT = "    "
-def format_message(message, level=0):
+def format_message_slack(message, level=0):
     lines = []
     lines.append(f"{INDENT * level}_{message.time_str} *{message.sender}*:_")
     for l in message.message_lines:
@@ -130,7 +143,7 @@ def format_message(message, level=0):
         reactions = "  ".join(f"{r} {c}" for r, c in r_counter.items())
         lines.append(f"{INDENT * (level + 1)}{reactions}")
     for r in message.replies:
-        lines.extend(format_message(r, level + 1))
+        lines.extend(format_message_slack(r, level + 1))
     return lines
 
 
@@ -144,8 +157,6 @@ if __name__ == "__main__":
     else:
         chat_parser(chat_lines.split("\n"))
 
-    for m in reversed(chat_parser.messages):
-        if m.primary_message_prefix is None:
-            # Threaded messages will be formatted-in by their primary
-            print("\n".join(format_message(m)))
-            print("══"*15)
+    for t in chat_parser.threads:
+        print("\n".join(format_message_slack(t)))
+        print("══"*10)
