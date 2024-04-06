@@ -156,6 +156,7 @@ if __name__ == "__main__":
     else:
         chat_parser(chat_lines.split("\n"))
 
+    format_message = format_message_slack
     for t in chat_parser.threads:
-        print("\n".join(format_message_slack(t)))
+        print("\n".join(format_message(t)))
         print("══"*10)
