@@ -1,0 +1,154 @@
+#!/usr/bin/env python3
+# zoom-chat-parser: Copyright © 2024 Benjamin Holt - MIT License
+
+from collections import Counter
+from dataclasses import dataclass, field
+import re
+# from time import time
+
+import smallmachine as sm
+
+
+@dataclass
+class ChatMessage:
+    time_str: str
+    sender: str
+    message_lines: list[str] = field(default_factory=list)
+    replies: list["ChatMessage"] = field(default_factory=list)
+    primary_message_prefix: str = None  # Primary prefix is enough to identify the message it's replying to
+    # primary_message: "ChatMessage" = None  # Could switch to this if we need to navigate up the tree
+    reactions: list[str] = field(default_factory=list)
+
+
+chat_lines = """
+15:01:39 From Michael M to Everyone:
+    When are we going to have AI run team summit?
+15:01:45 From Jared Roberts to Everyone:
+    Anyone still remember NFTs?
+15:01:47 From Aaron S to Everyone:
+    Replying to "When are we going to..."
+    
+    We already do
+15:01:53 From Aaron S to Everyone:
+    Replying to "When are we going to..."
+    
+    Gabe.ai
+15:01:53 From Michael M to Everyone:
+    Reacted to "We already do" with 😂
+"""
+
+class ChatParser:
+    def __init__(self) -> None:
+        self.messages = []  # FIXME: a deque storing messages in reverse order would be more efficient than reversing this all the time
+        self.current_message = None
+
+        header_test = sm.match_test(r"(?P<time_str>(?P<hour>\d{2}):(?P<minute>\d{2}):(?P<second>\d{2})) From (?P<from>.+?) to (?P<to>.+?):")
+        reply_test = sm.match_test(r'\s+Replying to "(?P<prefix>.+?)([.]{3})?"')
+        blank_test = sm.match_test(r"\s*")
+        reaction_test = sm.match_test(r'\s+Reacted to "(?P<prefix>.+?)([.]{3})?" with (?P<reaction>.+?)')
+        message_line_test = sm.match_test(r"\s+(?P<line>.*)")
+
+        chat_rules = {
+            "start": [
+                ("header", header_test, self.begin_message, "message"),
+                ("blank", blank_test, None, None),
+            ],
+            "message": [
+                ("reaction", reaction_test, self.add_reaction, "start"),
+                ("reply", reply_test, self.add_reply, "reply blank"),
+                ("line", message_line_test, self.add_message_line, "message lines"),
+            ],
+            "reply blank": [
+                # Blank line between "Replying to" and message is part of the format, not part of the message
+                ("blank", blank_test, None, "message lines"),
+            ],
+            "message lines": [
+                ("header", header_test, self.begin_message, "message"),
+                ("line", message_line_test, self.add_message_line, None),
+            ],
+        }
+
+        self.ctx = sm.ContextTracer()
+        rt = sm.RecentTracer()
+        self.parser = sm.StateMachine(
+            chat_rules, "start", 
+            tracer=sm.MultiTracer(self.ctx, rt), 
+            unrecognized=rt.throw
+        )
+        # self.parser.tracer = sm.MultiTracer(sm.PrefixTracer(), self.parser.tracer)  # Add debugging tracer
+
+    ###  Actions  ###
+    def begin_message(self, i):
+        if self.current_message:
+            self.messages.append(self.current_message)
+
+        result = self.ctx.result
+        self.current_message = ChatMessage(
+            time_str=result.group("time_str"),
+            sender=result.group("from"),
+        )
+
+    def add_reply(self, i):
+        result = self.ctx.result
+        prefix = result.group("prefix")
+        self.current_message.primary_message_prefix = prefix
+        primary_message = self.find_previous_message(prefix)
+        if primary_message:
+            # self.current_message.primary_message = primary_message
+            primary_message.replies.append(self.current_message)
+
+    def add_message_line(self, i):
+        l = self.ctx.result.group("line")
+        self.current_message.message_lines.append(l)
+
+    def add_reaction(self, i):
+        result = self.ctx.result
+        prefix = result.group("prefix")
+        previous_message = self.find_previous_message(prefix)
+        if previous_message:
+            previous_message.reactions.append(result.group("reaction"))
+        self.current_message = None  # Reactions don't contain actual messages
+
+    ###  Helpers  ###
+    def find_previous_message(self, prefix):
+        for m in reversed(self.messages):
+            if m.message_lines and m.message_lines[0].startswith(prefix):
+                return m
+        return None
+
+    def __call__(self, lines):
+        for l in lines:
+            self.parser(l)
+
+
+INDENT = "    "
+def format_message(message, level=0):
+    lines = []
+    lines.append(f"{INDENT * level}_{message.time_str} *{message.sender}*:_")
+    for l in message.message_lines:
+        lines.append(f"{INDENT * (level + 1)}{l}")
+    if message.reactions:
+        r_counter = Counter(message.reactions)
+        reactions = "  ".join(f"{r} {c}" for r, c in r_counter.items())
+        lines.append(f"{INDENT * (level + 1)}{reactions}")
+    for r in message.replies:
+        lines.extend(format_message(r, level + 1))
+    return lines
+
+
+if __name__ == "__main__":
+    # from pprint import pprint
+    import sys
+    chat_parser = ChatParser()
+    chat_file = sys.argv[1] if len(sys.argv) > 1 else None
+    if chat_file:
+        with open(chat_file) as f:
+            chat_parser(f)
+    else:
+        chat_parser(chat_lines.split("\n"))
+    # pprint(chat_parser.messages)
+    for m in chat_parser.messages:
+        if m.primary_message_prefix is None:
+            # Threaded messages will be formatted-in by their primary
+            print("\n".join(format_message(m)))
+            print("══"*15)
