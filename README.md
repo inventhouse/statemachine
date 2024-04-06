@@ -1,14 +1,14 @@
 # StateMachine
 _Fun with state machines and automata_
 
-- [**statemachine.py**](statemachine.py) - A lightweight, flexible, state machine engine; also includes tracing and the beginnings of a stack machine extension
+- [**smallmachine.py**](smallmachine.py) - A very lightweight, very flexible, state machine engine with tracing and other helpful accessories
 
 ---
 
 - [**sled**](sled) - **S**tatemachine **L**ine **ED**itor: A [`sed`](https://en.wikipedia.org/wiki/Sed)-like front-end built on [`statemachine.py`](statemachine.py), documented in [sled.md](sled.md)
 
-- [**SmoothSailing**](SmoothSailing) - Tiny, seemingly pointless, interactive fiction game to play with [`statemachine.py`](statemachine.py)
+- [**SmallSailing**](SmallSailing) - Tiny, seemingly pointless, interactive fiction game to play with [`smallmachine.py`](smallmachine.py)
 
-- [**statusparser**](statusparser) - Small example of a parser using the [`statemachine.py`](statemachine.py) engine to selectively extract and format some text; compare with [`statusparser.sled`](statusparser.sled) which instructs [`sled`](sled) to do approximately the same transformation.
+- [**zoom-chat-parser**](zoom-chat-parser) - Small example of a parser using the [`smallmachine.py`](smallmachine.py) engine to reformat a Zoom chat log, automatically threading replies and collecting reactions
 
 ---
