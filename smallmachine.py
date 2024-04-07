@@ -5,7 +5,7 @@ import re
 
 
 def statemachine(state=None, rules=None, history=..., debug=False):
-    "Create a StateMachine instance with a ContextTracer and optional verbose debugging tracer with configurable prefix; this is the most common way to set up a machine"
+    "Create a batteries-included StateMachine instance with a ContextTracer and optional verbose debugging tracer with configurable prefix; this is the most common way to set up a machine"
 
     ctx_args = {"history": history} if history is not ... else {}
     ctx = ContextTracer(**ctx_args)
