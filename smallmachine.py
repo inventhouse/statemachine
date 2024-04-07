@@ -170,7 +170,7 @@ class ContextTracer(object):
                 latest["loop_count"] = previous["loop_count"] + 1
                 self.history.pop()
 
-            if len(self.history) >= 2:
+            elif len(self.history) >= 2:
                 p_previous = self.history[-2]
                 if p_previous["state"] == latest["state"]:
                     # Start compacting loops on the third iteration
