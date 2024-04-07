@@ -5,7 +5,10 @@ import re
 
 
 def statemachine(state=None, rules=None, history=..., debug=False):
-    "Create a batteries-included StateMachine instance with a ContextTracer and optional verbose debugging tracer with configurable prefix; this is the most common way to set up a machine"
+    """Create a batteries-included state machine with context.
+
+    Returns a StateMachine and a ContextTracer.  The machine is pre-configured to collect context and reject unknown input; this is the most common way to set up a machine.  Optionally it can also have a verbose debugging tracer with configurable prefix added.
+    """
 
     ctx_args = {"history": history} if history is not ... else {}
     ctx = ContextTracer(**ctx_args)
@@ -19,8 +22,7 @@ def statemachine(state=None, rules=None, history=..., debug=False):
 
 
 class StateMachine(object):
-    """
-    State machine engine that makes minimal assumptions but includes some nice conveniences.
+    """State machine engine that makes minimal assumptions but includes some nice conveniences.
 
     State is simply the starting state for the machine.
 
