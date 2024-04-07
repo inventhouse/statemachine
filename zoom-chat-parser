@@ -42,7 +42,7 @@ class ChatParser:
         self.message_stack = deque()
         self.current_message = None
 
-        header_test = sm.match_test(r"(?P<time_str>(?P<hour>\d{2}):(?P<minute>\d{2}):(?P<second>\d{2})) From (?P<from>.+?) to (?P<to>.+?):")
+        header_test = sm.match_test(r"(?P<time_str>(?P<hour>\d{2}):(?P<minute>\d{2})):(?P<second>\d{2}) From (?P<from>.+?) to (?P<to>.+?):")  # Hack: only capture hour and minute for time
         reply_test = sm.match_test(r'\s+Replying to "(?P<prefix>.+?)([.]{3})?"')
         blank_test = sm.match_test(r"\s*$")
         reaction_test = sm.match_test(r'\s+Reacted to "(?P<prefix>.+?)([.]{3})?" with (?P<reaction>.+?)')
@@ -130,12 +130,12 @@ class ChatParser:
 INDENT = "    "
 def format_message_slack(message, level=0):
     lines = []
-    lines.append(f"{INDENT * level}_{message.time_str} *{message.sender}*:_")
+    lines.append(f"{INDENT * level}_({message.time_str}) *{message.sender}*:_")
     for l in message.message_lines:
         lines.append(f"{INDENT * (level + 1)}{l}")
     if message.reactions:
         r_counter = Counter(message.reactions)
-        reactions = "  ".join(f"{r} {c}" for r, c in r_counter.items())
+        reactions = "  ".join(f"{r}  {c}" for r, c in r_counter.items())
         lines.append(f"{INDENT * (level + 1)}{reactions}")
     for r in message.replies:
         lines.extend(format_message_slack(r, level + 1))
