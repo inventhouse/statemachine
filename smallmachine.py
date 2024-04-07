@@ -4,7 +4,7 @@ from collections import deque
 import re
 
 
-def statemachine(state, rules=None, history=..., debug=None):
+def statemachine(state=None, rules=None, history=..., debug=None):
     "Create a StateMachine instance with a ContextTracer and optional verbose debugging tracer with configurable prefix; this is the most common way to set up a machine"
 
     ctx_args = {"history": history} if history is not ... else {}
@@ -21,12 +21,12 @@ def statemachine(state, rules=None, history=..., debug=None):
 class StateMachine(object):
     """
     State machine engine that makes minimal assumptions but includes some nice conveniences.
-    
-    The rules dictionary maps each state to a list of rule tuples, each of which includes a label, a test, an action, and a destination; more about rule elements in the __call__ documentation.
-
-    Rules associated with the special None state are implicitly added to all states' rules, to be evaluated after explicit rules.
 
     State is simply the starting state for the machine.
+
+    The rules dictionary maps each state to a list of rule tuples, each of which includes a label, a test, an action, and a destination; more about rule elements in the __call__ documentation.
+
+    Rules associated with the special '...' state are implicitly added to all states' rules, to be evaluated after explicit rules.
 
     Tracer is an optional callable that takes a tracepoint string and its associated values, and is called at critical points in the input processing to follow the internal operation of the machine.  A simple tracer can produce logs that are extremely helpful when debugging, see PrefixTracer for an example.  Tracepoints are distinct constants which can be used by more advanced tracers for selective verbosity, state management, and other things.  Tracer values can be collected for later use or to provide context for more sophisticated tests or actions; see ContextTracer.  Tracers can be stacked using MultiTracer.
 
@@ -34,7 +34,7 @@ class StateMachine(object):
 
     Public attributes can be manipulated after init; for example a rule action could set the state machine's tracer to start or stop logging of the machine's operation.
     """
-    def __init__(self, state, rules=None, tracer=lambda m, **v: None, unrecognized=lambda _: None):
+    def __init__(self, state=None, rules=None, tracer=lambda m, **v: None, unrecognized=lambda _: None):
         # rules = { state: [(label, test, action, state), ...], ...}
         self.rules = rules if rules is not None else {}  # Rules can be set after init
         self.state = state
@@ -61,10 +61,10 @@ class StateMachine(object):
 
         - Action: when a test succeeds, the action is evaluated and the response is returned by this call.  If action callable, it will be called with the input; it is common for the action to have side-effects that are intended to happen when the test is met.  If it is not callable, the action literal will be returned.
 
-        - Destination: finally, if destination is callable it will be called with the current state to get the destination state, otherwise the literal value will be the destination.  If the destination state is None, the machine will remain in the same state (self-transition or "loop".)  Callable destinations can implement state push/pop for recursion, state exit/enter actions, non-deterministic state changes, and other interesting things.
+        - Destination: finally, if destination is callable it will be called with the current state to get the destination state, otherwise the literal value will be the destination.  If the destination state is '...', the machine will remain in the same state (self-transition or "loop".)  Callable destinations can implement state push/pop for recursion, state exit/enter actions, non-deterministic state changes, and other interesting things.
         """
         self.tracer(StateMachine.TRACE_INPUT, state=self.state, input=i)
-        rule_list = self.rules.get(self.state, []) + self.rules.get(None, [])
+        rule_list = self.rules.get(self.state, []) + self.rules.get(..., [])
         assert rule_list, "Empty rule list, set tracer to debug"
         for l,t,a,d in rule_list:
             self.tracer(StateMachine.TRACE_RULE, label=l, test=t, action=a, dest=d)
@@ -75,7 +75,7 @@ class StateMachine(object):
                 self.tracer(StateMachine.TRACE_RESPONSE, response=response)
                 dest = d(self.state) if callable(d) else d
                 self.tracer(StateMachine.TRACE_NEW_STATE, new_state=dest)
-                if dest is not None:
+                if dest is not ...:
                     assert dest in self.rules, f"Unknown state '{dest}', set tracer to debug"
                     self.state = dest
                 return response

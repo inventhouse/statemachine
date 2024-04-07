@@ -51,7 +51,7 @@ class ChatParser:
         chat_rules = {
             "start": [
                 ("header", header_test, self.begin_message, "message"),
-                ("blank", blank_test, None, None),
+                ("blank", blank_test, None, ...),
             ],
             "message": [
                 ("reaction", reaction_test, self.add_reaction, "start"),
@@ -64,7 +64,7 @@ class ChatParser:
             ],
             "message_lines": [
                 ("header", header_test, self.begin_message, "message"),
-                ("line", message_line_test, self.add_message_line, None),
+                ("line", message_line_test, self.add_message_line, ...),
             ],
         }
 

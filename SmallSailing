@@ -45,7 +45,7 @@ messages = {
 ###  Actions  ###
 def look_enter(dest):
     def l(state):
-        s = dest if dest is not None else state
+        s = dest if dest is not ... else state
         print(adlib(messages[s]))
         return dest
     return l
@@ -69,25 +69,23 @@ rules = {
     ],
     "above": [
         ("go below", in_test(["d", "down", "below",]), None, look_enter("below")),
-        ("sail", in_test(["s", "sail",]), sail_action, None),
+        ("sail", in_test(["s", "sail",]), sail_action, ...),
     ],
     "below": [
         ("go above", in_test(["u", "up", "above",]), None, look_enter("above")),
-        ("read log", in_test(["r", "read", "read logbook",]), lambda _: adlib([messages["log"], log_entries]), None),
-        ("write log", in_test(["w", "write", "log",]), write_action, None),
-        ("sleep", in_test(["s", "sleep", "bunk", "lie down", "lay down", "nap",]), lambda *_: adlib(messages["sleep"]), None),
+        ("read log", in_test(["r", "read", "read logbook",]), lambda _: adlib([messages["log"], log_entries]), ...),
+        ("write log", in_test(["w", "write", "log",]), write_action, ...),
+        ("sleep", in_test(["s", "sleep", "bunk", "lie down", "lay down", "nap",]), lambda *_: adlib(messages["sleep"]), ...),
     ],
-    None: [
-        ("look", in_test(["l", "look",]), None, look_enter(None)),
-        ("anything except crash", lambda i: i != "crash", "Sorry, you can't do that.", None),
+    ...: [
+        ("look", in_test(["l", "look",]), None, look_enter(...)),
+        ("anything except crash", lambda i: i != "crash", "Sorry, you can't do that.", ...),
     ]
 }
 
 world, ctx = statemachine("start", rules)
 # world, ctx = statemachine("start", rules, history=20)  # Keep a deeper trace, -1 for unlimited
-# world, ctx = statemachine("start", rules, debug=True)  # Add debugging tracer, can be combined with history depth
-
-
+# world, ctx = statemachine("start", rules, debug="***")  # Add debugging tracer with custom prefix, can be combined with history depth
 #####
 
 
