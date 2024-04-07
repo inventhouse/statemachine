@@ -158,12 +158,24 @@ class ContextTracer(object):
             self.history.append(self.context)
 
     def fold_loop(self):
-        if self.history:
-            previous = self.history[-1]
-            latest = self.context
-            if previous["state"] == latest["state"]:
-                latest["loop_count"] = previous.get("loop_count", 0) + 1
+        if not self.history:
+            return
+
+        latest = self.context
+        previous = self.history[-1]
+        if previous["state"] == latest["state"]:
+            if "loop_count" in previous:
+                # If we are looping in a state, keep compacting
+                latest["loop_count"] = previous["loop_count"] + 1
                 self.history.pop()
+
+            if len(self.history) >= 2:
+                p_previous = self.history[-2]
+                if p_previous["state"] == latest["state"]:
+                    # Start compacting loops on the third iteration
+                    latest["loop_count"] = 2
+                    self.history.pop()
+                    self.history.pop()
 
     ## Access context
     def get(self, key, default=None):
