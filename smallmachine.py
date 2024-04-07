@@ -4,14 +4,14 @@ from collections import deque
 import re
 
 
-def statemachine(state=None, rules=None, history=..., debug=None):
+def statemachine(state=None, rules=None, history=..., debug=False):
     "Create a StateMachine instance with a ContextTracer and optional verbose debugging tracer with configurable prefix; this is the most common way to set up a machine"
 
     ctx_args = {"history": history} if history is not ... else {}
     ctx = ContextTracer(**ctx_args)
     tracer = ctx
-    if debug or debug == "":
-        dbg_args = {"prefix": debug} if isinstance(debug, str) else {}
+    if debug is not False:
+        dbg_args = {"prefix": debug} if debug is not True else {}
         dbg = PrefixTracer(**dbg_args)
         tracer = MultiTracer(dbg, ctx)
     fsm = StateMachine(state, rules, tracer=tracer, unrecognized=ctx.reject)
@@ -89,7 +89,8 @@ class StateMachine(object):
 def PrefixTracer(prefix="T>", printer=print):
     "Prints tracepoints with a distinctive prefix and, optionally, to a separate destination than other output"
     def t(tp, **vals):
-        printer(f"{prefix} {tp.format(**vals)}")
+        msg = f"{prefix} {tp.format(**vals)}" if prefix else tp.format(**vals)
+        printer(msg)
     return t
 
 
