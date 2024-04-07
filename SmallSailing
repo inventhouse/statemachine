@@ -8,7 +8,7 @@ import random
 # import re
 import time
 
-from smallmachine import in_test, ContextTracer, StateMachine, PrefixTracer, MultiTracer
+from smallmachine import in_test, statemachine #ContextTracer, StateMachine, PrefixTracer, MultiTracer
 #####
 
 
@@ -83,10 +83,10 @@ rules = {
     ]
 }
 
-ctx = ContextTracer()
-# ctx = ContextTracer(depth=20)  # Keep a deeper trace, -1 for unlimited
-world = StateMachine(rules, "start", tracer=ctx, unrecognized=ctx.reject)
-# world.tracer = MultiTracer(PrefixTracer(), world.tracer)  # Add debugging tracer
+world, ctx = statemachine("start", rules)
+# world, ctx = statemachine("start", rules, history=20)  # Keep a deeper trace, -1 for unlimited
+# world, ctx = statemachine("start", rules, debug=True)  # Add debugging tracer, can be combined with history depth
+
 
 #####
 

@@ -1,6 +1,21 @@
 # SmallMachine: Copyright © 2021-2024 Benjamin Holt - MIT License
 
 from collections import deque
+import re
+
+
+def statemachine(state, rules=None, history=..., debug=None):
+    "Create a StateMachine instance with a ContextTracer and optional verbose debugging tracer with configurable prefix; this is the most common way to set up a machine"
+
+    ctx_args = {"history": history} if history is not ... else {}
+    ctx = ContextTracer(**ctx_args)
+    tracer = ctx
+    if debug or debug == "":
+        dbg_args = {"prefix": debug} if isinstance(debug, str) else {}
+        dbg = PrefixTracer(**dbg_args)
+        tracer = MultiTracer(dbg, ctx)
+    fsm = StateMachine(state, rules, tracer=tracer, unrecognized=ctx.reject)
+    return fsm, ctx
 
 
 class StateMachine(object):
@@ -19,8 +34,9 @@ class StateMachine(object):
 
     Public attributes can be manipulated after init; for example a rule action could set the state machine's tracer to start or stop logging of the machine's operation.
     """
-    def __init__(self, rules, state, tracer=lambda m, **v: None, unrecognized=lambda _: None):
-        self.rules = rules  # { state: [(label, test, action, state), ...], ...}
+    def __init__(self, state, rules=None, tracer=lambda m, **v: None, unrecognized=lambda _: None):
+        # rules = { state: [(label, test, action, state), ...], ...}
+        self.rules = rules if rules is not None else {}  # Rules can be set after init
         self.state = state
         self.tracer = tracer
         self.unrecognized = unrecognized
@@ -119,7 +135,7 @@ class ContextTracer(object):
     def __init__(self, history=10, compact=True):
         self.context = {}
         self.input_count = 0
-        if history < 0:
+        if history is None or history < 0:
             history = None  # Unlimited depth
         self.history = deque(maxlen=history)
         self.compact = compact
@@ -190,7 +206,6 @@ class ContextTracer(object):
 
 
 ###  Test Helpers  ###
-import re
 class match_test(object):
     "Callable to match input with a regex and format a nice __str__"
     def __init__(self, test_re_str):

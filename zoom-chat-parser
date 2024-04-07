@@ -68,13 +68,8 @@ class ChatParser:
             ],
         }
 
-        self.ctx = sm.ContextTracer()
-        self.parser = sm.StateMachine(
-            chat_rules, "start", 
-            tracer=self.ctx,
-            unrecognized=self.ctx.reject,
-        )
-        # self.parser.tracer = sm.MultiTracer(sm.PrefixTracer(), self.parser.tracer)  # Add debugging tracer
+        self.parser, self.ctx = sm.statemachine("start", chat_rules)
+        # self.parser, self.ctx = sm.statemachine("start", chat_rules, debug=True)
 
     ###  Actions  ###
     def begin_message(self, i):
