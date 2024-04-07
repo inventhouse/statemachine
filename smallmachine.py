@@ -164,8 +164,9 @@ class ContextTracer(object):
         latest = self.context
         previous = self.history[-1]
         if previous["state"] == latest["state"]:
+            # We have looped
             if "loop_count" in previous:
-                # If we are looping in a state, keep compacting
+                # If we are already compacting, fold
                 latest["loop_count"] = previous["loop_count"] + 1
                 self.history.pop()
 
