@@ -135,7 +135,7 @@ def format_message_slack(message, level=0):
         lines.append(f"{INDENT * (level + 1)}{l}")
     if message.reactions:
         r_counter = Counter(message.reactions)
-        reactions = "  ".join(f"{r}  {c}" for r, c in r_counter.items())
+        reactions = "\N{EM SPACE}\N{EM SPACE}".join(f"{r}\N{NARROW NO-BREAK SPACE}{c}" for r, c in r_counter.items())
         lines.append(f"{INDENT * (level + 1)}{reactions}")
     for r in message.replies:
         lines.extend(format_message_slack(r, level + 1))
