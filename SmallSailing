@@ -8,7 +8,7 @@ import random
 # import re
 import time
 
-from smallmachine import in_test, statemachine #ContextTracer, StateMachine, PrefixTracer, MultiTracer
+from smallmachine import in_test, statemachine
 #####
 
 
@@ -79,6 +79,7 @@ rules = {
     ],
     ...: [
         ("look", in_test(["l", "look",]), None, look_enter(...)),
+        ("warp", in_test(["warp",]), "Warp out of this dimention", "elsewhere"),
         ("anything except crash", lambda i: i != "crash", "Sorry, you can't do that.", ...),
     ]
 }

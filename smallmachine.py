@@ -4,20 +4,20 @@ from collections import deque
 import re
 
 
-def statemachine(state=None, rules=None, history=..., debug=False):
-    """Create a batteries-included state machine with context.
+def statemachine(state=None, rules=None, history=..., debug=False, lenient=False):
+    """Create a batteries-included state machine with context object.
 
     Returns a StateMachine and a ContextTracer.  The machine is pre-configured to collect context and reject unknown input; this is the most common way to set up a machine.  Optionally it can also have a verbose debugging tracer with configurable prefix added.
     """
 
     ctx_args = {"history": history} if history is not ... else {}
-    ctx = ContextTracer(**ctx_args)
+    ctx = ContextTracer(**ctx_args, lenient=lenient)
     tracer = ctx
     if debug is not False:
         dbg_args = {"prefix": debug} if debug is not True else {}
         dbg = PrefixTracer(**dbg_args)
         tracer = MultiTracer(dbg, ctx)
-    fsm = StateMachine(state, rules, tracer=tracer, unrecognized=ctx.reject)
+    fsm = StateMachine(state, rules, tracer=tracer)
     return fsm, ctx
 
 
@@ -36,12 +36,12 @@ class StateMachine(object):
 
     Public attributes can be manipulated after init; for example a rule action could set the state machine's tracer to start or stop logging of the machine's operation.
     """
-    def __init__(self, state=None, rules=None, tracer=lambda m, **v: None, unrecognized=lambda _: None):
-        # rules = { state: [(label, test, action, state), ...], ...}
-        self.rules = rules if rules is not None else {}  # Rules can be set after init
+    def __init__(self, state=None, rules=None, tracer=lambda m, **v: None):
+        # Starting state and rules can be set after init, but really should be set before using the machine
         self.state = state
+        # rules dict looks like { state: [(label, test, action, new_state), ...], ...}
+        self.rules = rules if rules is not None else {}
         self.tracer = tracer
-        self.unrecognized = unrecognized
 
     # The formatter keys are all distinct so they can be aggregated with dict.update; see ContextTracer for an example implementation
     TRACE_INPUT = "{state}('{input}')"
@@ -49,7 +49,8 @@ class StateMachine(object):
     TRACE_RESULT = "  {label}: {result}"
     TRACE_RESPONSE = "    {response}"
     TRACE_NEW_STATE = "    --> {new_state}"
-    TRACE_UNRECOGNIZED = "\t(No match)"
+    TRACE_UNRECOGNIZED = "\t(No match: {input})"
+    TRACE_UNKNOWN_STATE = "\t(Unknown state: {new_state})"
 
     def __call__(self, i):
         """
@@ -78,12 +79,24 @@ class StateMachine(object):
                 dest = d(self.state) if callable(d) else d
                 self.tracer(StateMachine.TRACE_NEW_STATE, new_state=dest)
                 if dest is not ...:
-                    assert dest in self.rules, f"Unknown state '{dest}', set tracer to debug"
+                    if dest not in self.rules:
+                        self.tracer(StateMachine.TRACE_UNKNOWN_STATE, new_state=dest)
                     self.state = dest
                 return response
         else:
-            self.tracer(StateMachine.TRACE_UNRECOGNIZED)
-            return self.unrecognized(i)
+            self.tracer(StateMachine.TRACE_UNRECOGNIZED, input=i)
+            return None
+#####
+
+
+###  Exceptions  ###
+class UnrecognizedInputError(ValueError):
+    "Raised when input is not matched by any rule in a StateMachine"
+    pass  # The tracer raising this error is responsible for the message
+
+class UnknownStateError(RuntimeError):
+    "Raised when a StateMachine transitions to an unknown state"
+    pass  # The tracer raising this error is responsible for the message
 #####
 
 
@@ -135,13 +148,19 @@ class ContextTracer(object):
 
     Attributes can be tested for with e.g. '"result" in ctx' or retrieved leniently with 'ctx.get("result" [, default])'
     """
-    def __init__(self, history=10, compact=True):
+    def __init__(self, history=10, compact=True, lenient=False):
         self.context = {}
         self.input_count = 0
         if history is None or history < 0:
             history = None  # Unlimited depth
         self.history = deque(maxlen=history)
         self.compact = compact
+        if lenient is False:
+            self.lenient = ()
+        elif lenient is True:
+            self.lenient = (UnrecognizedInputError, UnknownStateError)
+        else:
+            self.lenient = lenient
 
     ## Collect context & history
     def __call__(self, tracepoint, **values):
@@ -159,6 +178,15 @@ class ContextTracer(object):
             self.fold_loop()
         if tracepoint in (StateMachine.TRACE_NEW_STATE, StateMachine.TRACE_UNRECOGNIZED):
             self.history.append(self.context)
+
+        if tracepoint == StateMachine.TRACE_UNRECOGNIZED and UnrecognizedInputError not in self.lenient:
+            trace_lines = "\n".join(self.format_trace())
+            msg = "Unrecognized input\nStateMachine Traceback (most recent transition last):\n{trace_lines}\nUnrecognizedInputError: '{state}' did not recognize {input_count}: '{input}'".format(trace_lines=trace_lines, **self.context)
+            raise UnrecognizedInputError(msg)
+        if tracepoint == StateMachine.TRACE_UNKNOWN_STATE and UnknownStateError not in self.lenient:
+            trace_lines = "\n".join(self.format_trace())
+            msg = "Unknown state\nStateMachine Traceback (most recent transition last):\n{trace_lines}\nUnknownStateError: '{new_state}' is not in the ruleset".format(trace_lines=trace_lines, **self.context)
+            raise UnknownStateError(msg)
 
     def fold_loop(self):
         if not self.history:
@@ -193,17 +221,6 @@ class ContextTracer(object):
             raise AttributeError(f"context currently has no attribute '{attr}'")
         return self.context[attr]
 
-    ## Handle unrecognized
-    def reject(self, i):
-        """Raises a `ValueError` for an unrecognized input to a `StateMachine` with a trace of that machine's recent significant transitions."""
-        ctx = self.context
-        trace_lines = "\n".join(self.format_trace())
-        s = ctx.get("state", "State missing")
-        i = ctx.get("input", "Input missing")
-        c = ctx.get("input_count", "Count missing")
-        msg = f"Unrecognized input\nStateMachine Traceback (most recent transition last):\n{trace_lines}\nValueError: '{s}' did not recognize {c}: '{i}'"
-        raise ValueError(msg)
-
     ## Formatting
     def format_transition(self, t):
         tp = t.get("tracepoint", "Tracepoint missing")
@@ -214,6 +231,9 @@ class ContextTracer(object):
         if tp == StateMachine.TRACE_UNRECOGNIZED:
             # Unrecognized has its own format
             return "{input_count}: {state}('{input}') > No match".format(**t)
+        if tp == StateMachine.TRACE_UNKNOWN_STATE:
+            # Unknown state has its own format
+            return "{input_count}: {state}('{input}') > Unknown state: {new_state}".format(**t)
         return f"PARTIAL: {str(t)}"  # If transition somehow did not complete but also is not unrecognized, simply dump it for debugging
 
     def format_trace(self):
