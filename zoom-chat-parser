@@ -164,6 +164,12 @@ if __name__ == "__main__":
         chat_parser(chat_lines.split("\n"))
 
     format_message = format_message_slack
-    for t in chat_parser.threads:
+    threads = chat_parser.threads
+    # HACK: filter out single-character messages (i.e. the two-truths voting)
+    threads = (
+        t for t in threads 
+        if t.replies or len("".join(t.message_lines)) > 1
+    )
+    for t in threads:
         print("\n".join(format_message(t)))
-        print("══"*10)
+        print("═"*15)
