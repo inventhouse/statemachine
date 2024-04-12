@@ -98,6 +98,7 @@ class ChatParser:
                 ("blank", blank_test, None, ...),
             ],
             "message": [
+                # Reactions do not have any other lines, back to the top state
                 ("reaction", reaction_test, add_reaction, None),
                 ("reply", reply_test, add_reply, "reply_blank"),
                 ("line", message_line_test, add_message_line, "message_lines"),
