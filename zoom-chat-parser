@@ -56,6 +56,7 @@ class ChatParser:
         header_test = sm.match_test(r"(?P<time_str>(?P<hour>\d{2}):(?P<minute>\d{2}):(?P<second>\d{2})) From (?P<from>.+?) to (?P<to>.+?):")
         @action_formatter
         def begin_message(i):
+            # Push any previous message onto the stack and start a new one
             if self.current_message:
                 self.message_stack.appendleft(self.current_message)
             result = self.ctx.result
