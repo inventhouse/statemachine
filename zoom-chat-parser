@@ -50,8 +50,10 @@ class ChatParser:
         # Store messages LIFO to make finding previous message easy for replies and reactions
         self.message_stack = deque()
         self.current_message = None
+        self.parser, self.ctx = sm.statemachine()
+        # self.parser, self.ctx = sm.statemachine(debug=True)
 
-        header_test = sm.match_test(r"(?P<time_str>(?P<hour>\d{2}):(?P<minute>\d{2})):(?P<second>\d{2}) From (?P<from>.+?) to (?P<to>.+?):")  # Hack: only capture hour and minute for time
+        header_test = sm.match_test(r"(?P<time_str>(?P<hour>\d{2}):(?P<minute>\d{2}):(?P<second>\d{2})) From (?P<from>.+?) to (?P<to>.+?):")
         @action_formatter
         def begin_message(i):
             if self.current_message:
@@ -90,13 +92,13 @@ class ChatParser:
             l = self.ctx.result.group("line")
             self.current_message.message_lines.append(l)
 
-        chat_rules = {
-            "start": [
+        self.parser.rules = {
+            None: [
                 ("header", header_test, begin_message, "message"),
                 ("blank", blank_test, None, ...),
             ],
             "message": [
-                ("reaction", reaction_test, add_reaction, "start"),
+                ("reaction", reaction_test, add_reaction, None),
                 ("reply", reply_test, add_reply, "reply_blank"),
                 ("line", message_line_test, add_message_line, "message_lines"),
             ],
@@ -109,9 +111,6 @@ class ChatParser:
                 ("line", message_line_test, add_message_line, ...),
             ],
         }
-
-        self.parser, self.ctx = sm.statemachine("start", chat_rules)
-        # self.parser, self.ctx = sm.statemachine("start", chat_rules, debug=True)
 
 
     ###  Helpers  ###
@@ -141,7 +140,8 @@ class ChatParser:
 INDENT = "    "
 def format_message_slack(message, level=0):
     lines = []
-    lines.append(f"{INDENT * level}_({message.time_str}) *{message.sender}*:_")
+    # HACK: drop the seconds from the time for more compact headers
+    lines.append(f"{INDENT * level}_({message.time_str[:-3]}) *{message.sender}*:_")
     for l in message.message_lines:
         lines.append(f"{INDENT * (level + 1)}{l}")
     if message.reactions:
