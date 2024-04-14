@@ -43,12 +43,13 @@ class StateMachine(object):
 
     # The formatter keys are all distinct so they can be aggregated with dict.update; see ContextTracer for an example implementation
     TRACE_INPUT = "{state}('{input}')"
+    TRACE_NO_RULES = "\t(No rules: {state})"  # Consider raising NoRulesError
     TRACE_RULE = "  {label}: {test} -- {action} --> {dest}"
     TRACE_RESULT = "  {label}: {result}"
     TRACE_RESPONSE = "    {response}"
     TRACE_NEW_STATE = "    --> {new_state}"
-    TRACE_UNRECOGNIZED = "\t(No match: {input})"
-    TRACE_UNKNOWN_STATE = "\t(Unknown state: {new_state})"
+    TRACE_UNRECOGNIZED = "\t(No match: '{input}')"  # Consider raising UnrecognizedInputError
+    TRACE_UNKNOWN_STATE = "\t(Unknown state: {new_state})"  # Consider raising UnknownStateError
 
     def __call__(self, i):
         """
@@ -66,7 +67,8 @@ class StateMachine(object):
         """
         self.tracer(StateMachine.TRACE_INPUT, state=self.state, input=i)
         rule_list = self.rules.get(self.state, []) + self.rules.get(..., [])
-        assert rule_list, "Empty rule list, set tracer to debug"
+        if not rule_list:
+            self.tracer(StateMachine.TRACE_NO_RULES, state=self.state)
         for l,t,a,d in rule_list:
             self.tracer(StateMachine.TRACE_RULE, label=l, test=t, action=a, dest=d)
             result = t(i) if callable(t) else t == i
@@ -88,6 +90,10 @@ class StateMachine(object):
 
 
 ###  Exceptions  ###
+class NoRulesError(RuntimeError):
+    "Raised when when a state has no explicit or implicit rules in a StateMachine"
+    pass  # The tracer raising this error is responsible for the message
+
 class UnrecognizedInputError(ValueError):
     "Raised when input is not matched by any rule in a StateMachine"
     pass  # The tracer raising this error is responsible for the message
@@ -156,7 +162,7 @@ class ContextTracer(object):
         if lenient is False:
             self.lenient = ()
         elif lenient is True:
-            self.lenient = (UnrecognizedInputError, UnknownStateError)
+            self.lenient = (NoRulesError, UnrecognizedInputError, UnknownStateError)
         else:
             self.lenient = lenient
 
@@ -164,22 +170,27 @@ class ContextTracer(object):
     def __call__(self, tracepoint, **values):
         values["tracepoint"] = tracepoint
         if tracepoint == StateMachine.TRACE_INPUT:
+            if self.context:
+                self.history.append(self.context)
             self.input_count += 1
             values["input_count"] = self.input_count
             self.context = values
         else:
+            if tracepoint == StateMachine.TRACE_NO_RULES:
+                values["no_rules"] = "(No rules)"
             if tracepoint == StateMachine.TRACE_UNRECOGNIZED:
                 values["unrecognized"] = "(No match)"
+            if tracepoint == StateMachine.TRACE_UNKNOWN_STATE:
+                values["unknown_state"] = "(Unknown state)"
             self.context.update(values)
 
         if self.compact and tracepoint == StateMachine.TRACE_NEW_STATE:
             self.fold_loop()
-        if tracepoint in (
-            StateMachine.TRACE_NEW_STATE,
-            StateMachine.TRACE_UNRECOGNIZED
-            ):
-            self.history.append(self.context)
 
+        if tracepoint == StateMachine.TRACE_NO_RULES and NoRulesError not in self.lenient:
+            trace_lines = "\n".join(self.format_trace())
+            msg = "No rules for state\nStateMachine Traceback (most recent transition last):\n{trace_lines}\nNoRulesError: '{state}' does not have any explicit nor implicit rules".format(trace_lines=trace_lines, **self.context)
+            raise NoRulesError(msg)
         if tracepoint == StateMachine.TRACE_UNRECOGNIZED and UnrecognizedInputError not in self.lenient:
             trace_lines = "\n".join(self.format_trace())
             msg = "Unrecognized input\nStateMachine Traceback (most recent transition last):\n{trace_lines}\nUnrecognizedInputError: '{state}' did not recognize {input_count}: '{input}'".format(trace_lines=trace_lines, **self.context)
@@ -229,16 +240,20 @@ class ContextTracer(object):
             # Most transitions will be "complete"
             looped = "    ({loop_count} loops in '{state}' elided)\n".format_map(t) if "loop_count" in t else ""
             return looped + "{input_count}: {state}('{input}') > {label}: {result} -- {response} --> {new_state}".format(**t)
+        if tp == StateMachine.TRACE_NO_RULES:
+            # No rules has its own format
+            return "{input_count}: {state} > No rules".format(**t)
         if tp == StateMachine.TRACE_UNRECOGNIZED:
             # Unrecognized has its own format
             return "{input_count}: {state}('{input}') > No match".format(**t)
         if tp == StateMachine.TRACE_UNKNOWN_STATE:
             # Unknown state has its own format
             return "{input_count}: {state}('{input}') > Unknown state: {new_state}".format(**t)
-        return f"PARTIAL: {str(t)}"  # If transition somehow did not complete but also is not unrecognized, simply dump it for debugging
+        return f"PARTIAL: {str(t)}"  # If transition somehow does not have a known formatting, simply dump it for debugging
 
     def format_trace(self):
-        return [ self.format_transition(t) for t in self.history ]
+        transitions = (*self.history, self.context)
+        return [ self.format_transition(t) for t in transitions ]
 #####
 
 

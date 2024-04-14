@@ -112,6 +112,7 @@ class ChatParser:
                 ("header", header_test, begin_message, "message"),
                 ("line", message_line_test, add_message_line, ...),
             ],
+            "no_rules": [],  # Test state for no rules error
         }
 
 
