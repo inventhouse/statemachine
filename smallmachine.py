@@ -122,7 +122,7 @@ def MultiTracer(*tracers):
 
 
 class ContextTracer(object):
-    """Collects the context and history of a StateMachine as it evaluates an input; use the ctx.throw bound method to raise ValueError with a context history trace on unrecognized input.
+    """Collects the context and history of a StateMachine as it evaluates an input; use the ctx.throw bound method to raise errors with a context history trace on machine malfunctions.
 
     ContextTracer attributes are added and updated as the machine processes as follows:
 
@@ -131,6 +131,7 @@ class ContextTracer(object):
     - state: The current state
     - input: The raw input
     - input_count: The count of inputs received, the first input is 1
+    - no_rules: constant "(No rules)" if no explicit nor implicit rules were found for the current state
 
     Rule evaluation begins:
     - label: The label of the rule being evaluated, usually a name or a distinct tag
@@ -146,6 +147,7 @@ class ContextTracer(object):
 
     Destination evaluated:
     - new_state: The value produced by evaluating the destination of a successful rule
+    - unknown_state: constant "(Unknown state)" if the new_state is not in the ruleset
 
     All rules failed:
     - unrecognized: constant "(No match)"
