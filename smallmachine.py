@@ -4,19 +4,30 @@ from collections import deque
 import re
 
 
-def statemachine(state=None, rules=None, history=..., debug=False, lenient=False):
+def statemachine(state=None, rules=None, history=..., debug=False, lenient=()):
     """Create a batteries-included state machine with context object.
 
     Returns a StateMachine and a ContextTracer.  The machine is pre-configured to collect context and reject unknown input and states; this is the most common way to set up a machine.  Optionally it can also have a verbose debugging tracer with configurable prefix added.
     """
 
-    ctx_args = {"history": history} if history is not ... else {}
-    ctx = ContextTracer(**ctx_args, lenient=lenient)
-    tracer = ctx
+    tracers = []
     if debug is not False:
         dbg_args = {"prefix": debug} if debug is not True else {}
         dbg = PrefixTracer(**dbg_args)
-        tracer = MultiTracer(dbg, ctx)
+        tracers.append(dbg)
+
+    ctx_args = {"history": history} if history is not ... else {}
+    ctx = ContextTracer(**ctx_args)  #, lenient=lenient)
+    tracers.append(ctx)
+
+    if lenient is not True:
+        if NoRulesError not in lenient:
+            tracers.append(NoRulesError.tracer())
+        if UnrecognizedInputError not in lenient:
+            tracers.append(UnrecognizedInputError.tracer())
+        if UnknownStateError not in lenient:
+            tracers.append(UnknownStateError.tracer())
+    tracer = MultiTracer(*tracers) if len(tracers) > 1 else tracers[0]
     fsm = StateMachine(state, rules, tracer=tracer)
     return fsm, ctx
 
@@ -92,15 +103,56 @@ class StateMachine(object):
 ###  Exceptions  ###
 class NoRulesError(RuntimeError):
     "Raised when when a state has no explicit or implicit rules in a StateMachine"
-    pass  # The tracer raising this error is responsible for the message
+    @classmethod
+    def format(cls, **vals):
+        sm_trace = ""
+        if trace_lines := vals.get("trace_lines"):
+            sm_trace = f"StateMachine Traceback (most recent last):\n{trace_lines}\n{cls.__name__}: "
+        msg = "{sm_trace}'{state}' does not have any explicit nor implicit rules".format(
+            sm_trace=sm_trace,
+            **vals
+        )
+        return msg
+
+    @classmethod
+    def tracer(cls, *args, **kwargs):
+        return ErrorTracer(StateMachine.TRACE_NO_RULES, cls, *args, **kwargs)
+
 
 class UnrecognizedInputError(ValueError):
     "Raised when input is not matched by any rule in a StateMachine"
-    pass  # The tracer raising this error is responsible for the message
+    @classmethod
+    def format(cls, **vals):
+        sm_trace = ""
+        if trace_lines := vals.get("trace_lines"):
+            sm_trace = f"StateMachine Traceback (most recent last):\n{trace_lines}\n{cls.__name__}: "
+        msg = "{sm_trace}'{state}' did not recognize {input_count}: '{input}'".format(
+            sm_trace=sm_trace,
+            **vals
+        )
+        return msg
+
+    @classmethod
+    def tracer(cls, *args, **kwargs):
+        return ErrorTracer(StateMachine.TRACE_UNRECOGNIZED, cls, *args, **kwargs)
+
 
 class UnknownStateError(RuntimeError):
     "Raised when a StateMachine transitions to an unknown state"
-    pass  # The tracer raising this error is responsible for the message
+    @classmethod
+    def format(cls, **vals):
+        sm_trace = ""
+        if trace_lines := vals.get("trace_lines"):
+            sm_trace = f"StateMachine Traceback (most recent last):\n{trace_lines}\n{cls.__name__}: "
+        msg = "{sm_trace}'{new_state}' is not in the ruleset".format(
+            sm_trace=sm_trace,
+            **vals
+        )
+        return msg
+
+    @classmethod
+    def tracer(cls, *args, **kwargs):
+        return ErrorTracer(StateMachine.TRACE_UNKNOWN_STATE, cls, *args, **kwargs)
 #####
 
 
@@ -122,7 +174,7 @@ def MultiTracer(*tracers):
 
 
 class ContextTracer(object):
-    """Collects the context and history of a StateMachine as it evaluates an input; use the ctx.throw bound method to raise errors with a context history trace on machine malfunctions.
+    """Collects the context and history of a StateMachine as it evaluates an input.
 
     ContextTracer attributes are added and updated as the machine processes as follows:
 
@@ -154,19 +206,19 @@ class ContextTracer(object):
 
     Attributes can be tested for with e.g. '"result" in ctx' or retrieved leniently with 'ctx.get("result" [, default])'
     """
-    def __init__(self, history=10, compact=True, lenient=False):
+    def __init__(self, history=10, compact=True):  #, lenient=False):
         self.context = {}
         self.input_count = 0
         if history is None or history < 0:
             history = None  # Unlimited depth
         self.history = deque(maxlen=history)
         self.compact = compact
-        if lenient is False:
-            self.lenient = ()
-        elif lenient is True:
-            self.lenient = (NoRulesError, UnrecognizedInputError, UnknownStateError)
-        else:
-            self.lenient = lenient
+        # if lenient is False:
+        #     self.lenient = ()
+        # elif lenient is True:
+        #     self.lenient = (NoRulesError, UnrecognizedInputError, UnknownStateError)
+        # else:
+        #     self.lenient = lenient
 
     ## Collect context & history
     def __call__(self, tracepoint, **values):
@@ -189,18 +241,18 @@ class ContextTracer(object):
         if self.compact and tracepoint == StateMachine.TRACE_NEW_STATE:
             self.fold_loop()
 
-        if tracepoint == StateMachine.TRACE_NO_RULES and NoRulesError not in self.lenient:
-            trace_lines = "\n".join(self.format_trace())
-            msg = "No rules for state\nStateMachine Traceback (most recent transition last):\n{trace_lines}\nNoRulesError: '{state}' does not have any explicit nor implicit rules".format(trace_lines=trace_lines, **self.context)
-            raise NoRulesError(msg)
-        if tracepoint == StateMachine.TRACE_UNRECOGNIZED and UnrecognizedInputError not in self.lenient:
-            trace_lines = "\n".join(self.format_trace())
-            msg = "Unrecognized input\nStateMachine Traceback (most recent transition last):\n{trace_lines}\nUnrecognizedInputError: '{state}' did not recognize {input_count}: '{input}'".format(trace_lines=trace_lines, **self.context)
-            raise UnrecognizedInputError(msg)
-        if tracepoint == StateMachine.TRACE_UNKNOWN_STATE and UnknownStateError not in self.lenient:
-            trace_lines = "\n".join(self.format_trace())
-            msg = "Unknown state\nStateMachine Traceback (most recent transition last):\n{trace_lines}\nUnknownStateError: '{new_state}' is not in the ruleset".format(trace_lines=trace_lines, **self.context)
-            raise UnknownStateError(msg)
+        # if tracepoint == StateMachine.TRACE_NO_RULES and NoRulesError not in self.lenient:
+        #     trace_lines = "\n".join(self.format_trace())
+        #     msg = "No rules for state\nStateMachine Traceback (most recent transition last):\n{trace_lines}\nNoRulesError: '{state}' does not have any explicit nor implicit rules".format(trace_lines=trace_lines, **self.context)
+        #     raise NoRulesError(msg)
+        # if tracepoint == StateMachine.TRACE_UNRECOGNIZED and UnrecognizedInputError not in self.lenient:
+        #     trace_lines = "\n".join(self.format_trace())
+        #     msg = "Unrecognized input\nStateMachine Traceback (most recent transition last):\n{trace_lines}\nUnrecognizedInputError: '{state}' did not recognize {input_count}: '{input}'".format(trace_lines=trace_lines, **self.context)
+        #     raise UnrecognizedInputError(msg)
+        # if tracepoint == StateMachine.TRACE_UNKNOWN_STATE and UnknownStateError not in self.lenient:
+        #     trace_lines = "\n".join(self.format_trace())
+        #     msg = "Unknown state\nStateMachine Traceback (most recent transition last):\n{trace_lines}\nUnknownStateError: '{new_state}' is not in the ruleset".format(trace_lines=trace_lines, **self.context)
+        #     raise UnknownStateError(msg)
 
     def fold_loop(self):
         if not self.history:
@@ -251,11 +303,36 @@ class ContextTracer(object):
         if tp == StateMachine.TRACE_UNKNOWN_STATE:
             # Unknown state has its own format
             return "{input_count}: {state}('{input}') > Unknown state: {new_state}".format(**t)
-        return f"PARTIAL: {str(t)}"  # If transition somehow does not have a known formatting, simply dump it for debugging
+        return f"PARTIAL: {str(t)}"  # If transition somehow does not have a known formatting, simply dump it for debugging  FIXME: do better
 
     def format_trace(self):
         transitions = (*self.history, self.context)
         return [ self.format_transition(t) for t in transitions ]
+
+
+class ErrorTracer(object):
+    "Raises an error when a tracepoint is called"
+    def __init__(self, error_point, error, history=10):
+        self.error_point = error_point
+        self.error = error
+        self.input_count = 0
+        self.context = {"input_count": self.input_count}  # REM: do we want configurable context providers?
+        if history is None or history < 0:
+            history = None  # Unlimited depth
+        self.trace = deque(maxlen=history)  # TODO: allow custom trace providers
+
+    def __call__(self, tp, **vals):
+        if tp == StateMachine.TRACE_INPUT:
+            self.input_count += 1
+            self.context = {"input_count": self.input_count}
+        self.context.update(vals)
+        self.trace.append(tp.format(**vals))
+        if tp == self.error_point:
+            msg = self.error.format(
+                trace_lines="\n".join(self.trace),
+                **self.context
+            )
+            raise self.error(msg)
 #####
 
 

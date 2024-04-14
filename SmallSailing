@@ -8,7 +8,7 @@ import random
 # import re
 import time
 
-from smallmachine import in_test, statemachine
+import smallmachine as sm
 #####
 
 
@@ -68,25 +68,28 @@ rules = {
         ("start", lambda _: True, None, look_enter("above")),
     ],
     "above": [
-        ("go below", in_test(["d", "down", "below",]), None, look_enter("below")),
-        ("sail", in_test(["s", "sail",]), sail_action, ...),
+        ("go below", sm.in_test(["d", "down", "below",]), None, look_enter("below")),
+        ("sail", sm.in_test(["s", "sail",]), sail_action, ...),
     ],
     "below": [
-        ("go above", in_test(["u", "up", "above",]), None, look_enter("above")),
-        ("read log", in_test(["r", "read", "read logbook",]), lambda _: adlib([messages["log"], log_entries]), ...),
-        ("write log", in_test(["w", "write", "log",]), write_action, ...),
-        ("sleep", in_test(["s", "sleep", "bunk", "lie down", "lay down", "nap",]), lambda *_: adlib(messages["sleep"]), ...),
+        ("go above", sm.in_test(["u", "up", "above",]), None, look_enter("above")),
+        ("read log", sm.in_test(["r", "read", "read logbook",]), lambda _: adlib([messages["log"], log_entries]), ...),
+        ("write log", sm.in_test(["w", "write", "log",]), write_action, ...),
+        ("sleep", sm.in_test(["s", "sleep", "bunk", "lie down", "lay down", "nap",]), lambda *_: adlib(messages["sleep"]), ...),
     ],
     ...: [
-        ("look", in_test(["l", "look",]), None, look_enter(...)),
-        ("warp", in_test(["warp",]), "Warp out of this dimention", "elsewhere"),
+        ("look", sm.in_test(["l", "look",]), None, look_enter(...)),
+        ("warp", sm.in_test(["warp",]), "Warp out of this dimention", "elsewhere"),
         ("anything except crash", lambda i: i != "crash", "Sorry, you can't do that.", ...),
     ]
 }
 
-world, ctx = statemachine("start", rules)
-# world, ctx = statemachine("start", rules, history=20)  # Keep a deeper trace, -1 for unlimited
-# world, ctx = statemachine("start", rules, debug="***")  # Add debugging tracer with custom prefix, can be combined with history depth
+world, ctx = sm.statemachine("start", rules)
+# world, ctx = sm.statemachine("start", rules, history=20)  # Keep a deeper trace, -1 for unlimited
+# world, ctx = sm.statemachine("start", rules, debug="***")  # Add debugging tracer with custom prefix, can be combined with history depth
+# ctx = sm.ContextTracer()
+# unrecognized = sm.UnrecognizedInputError.tracer()
+# world = sm.StateMachine("start", rules, sm.MultiTracer(unrecognized, ctx))
 #####
 
 
