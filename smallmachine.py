@@ -105,9 +105,7 @@ class NoRulesError(RuntimeError):
     "Raised when when a state has no explicit or implicit rules in a StateMachine"
     @classmethod
     def format(cls, **vals):
-        sm_trace = ""
-        if trace_lines := vals.get("trace_lines"):
-            sm_trace = f"StateMachine Traceback (most recent last):\n{trace_lines}\n{cls.__name__}: "
+        sm_trace = trace_helper(cls, vals.get("trace_lines"))
         msg = "{sm_trace}'{state}' does not have any explicit nor implicit rules".format(
             sm_trace=sm_trace,
             **vals
@@ -123,9 +121,7 @@ class UnrecognizedInputError(ValueError):
     "Raised when input is not matched by any rule in a StateMachine"
     @classmethod
     def format(cls, **vals):
-        sm_trace = ""
-        if trace_lines := vals.get("trace_lines"):
-            sm_trace = f"StateMachine Traceback (most recent last):\n{trace_lines}\n{cls.__name__}: "
+        sm_trace = trace_helper(cls, vals.get("trace_lines"))
         msg = "{sm_trace}'{state}' did not recognize {input_count}: '{input}'".format(
             sm_trace=sm_trace,
             **vals
@@ -141,9 +137,7 @@ class UnknownStateError(RuntimeError):
     "Raised when a StateMachine transitions to an unknown state"
     @classmethod
     def format(cls, **vals):
-        sm_trace = ""
-        if trace_lines := vals.get("trace_lines"):
-            sm_trace = f"StateMachine Traceback (most recent last):\n{trace_lines}\n{cls.__name__}: "
+        sm_trace = trace_helper(cls, vals.get("trace_lines"))
         msg = "{sm_trace}'{new_state}' is not in the ruleset".format(
             sm_trace=sm_trace,
             **vals
@@ -153,6 +147,12 @@ class UnknownStateError(RuntimeError):
     @classmethod
     def tracer(cls, *args, **kwargs):
         return ErrorTracer(StateMachine.TRACE_UNKNOWN_STATE, cls, *args, **kwargs)
+
+
+def trace_helper(err, trace_lines):
+    if not trace_lines:
+        return ""
+    return f"StateMachine Traceback (most recent last):\n{trace_lines}\n{err.__name__}: "
 #####
 
 
