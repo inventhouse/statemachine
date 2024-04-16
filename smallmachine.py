@@ -206,19 +206,13 @@ class ContextTracer(object):
 
     Attributes can be tested for with e.g. '"result" in ctx' or retrieved leniently with 'ctx.get("result" [, default])'
     """
-    def __init__(self, history=10, compact=True):  #, lenient=False):
+    def __init__(self, history=10, compact=True):
         self.context = {}
         self.input_count = 0
         if history is None or history < 0:
             history = None  # Unlimited depth
         self.history = deque(maxlen=history)
         self.compact = compact
-        # if lenient is False:
-        #     self.lenient = ()
-        # elif lenient is True:
-        #     self.lenient = (NoRulesError, UnrecognizedInputError, UnknownStateError)
-        # else:
-        #     self.lenient = lenient
 
     ## Collect context & history
     def __call__(self, tracepoint, **values):
@@ -240,19 +234,6 @@ class ContextTracer(object):
 
         if self.compact and tracepoint == StateMachine.TRACE_NEW_STATE:
             self.fold_loop()
-
-        # if tracepoint == StateMachine.TRACE_NO_RULES and NoRulesError not in self.lenient:
-        #     trace_lines = "\n".join(self.format_trace())
-        #     msg = "No rules for state\nStateMachine Traceback (most recent transition last):\n{trace_lines}\nNoRulesError: '{state}' does not have any explicit nor implicit rules".format(trace_lines=trace_lines, **self.context)
-        #     raise NoRulesError(msg)
-        # if tracepoint == StateMachine.TRACE_UNRECOGNIZED and UnrecognizedInputError not in self.lenient:
-        #     trace_lines = "\n".join(self.format_trace())
-        #     msg = "Unrecognized input\nStateMachine Traceback (most recent transition last):\n{trace_lines}\nUnrecognizedInputError: '{state}' did not recognize {input_count}: '{input}'".format(trace_lines=trace_lines, **self.context)
-        #     raise UnrecognizedInputError(msg)
-        # if tracepoint == StateMachine.TRACE_UNKNOWN_STATE and UnknownStateError not in self.lenient:
-        #     trace_lines = "\n".join(self.format_trace())
-        #     msg = "Unknown state\nStateMachine Traceback (most recent transition last):\n{trace_lines}\nUnknownStateError: '{new_state}' is not in the ruleset".format(trace_lines=trace_lines, **self.context)
-        #     raise UnknownStateError(msg)
 
     def fold_loop(self):
         if not self.history:
