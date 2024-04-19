@@ -34,6 +34,10 @@ chat_lines = """
     Gabe.ai
 15:01:53 From Michael M to Everyone:
     Reacted to "We already do" with 😂
+15:07:18 From Becca S to Everyone:
+    Reacted to "Anyone still remember ..." with 👏🏼
+15:07:20 From Becca S to Everyone:
+    Removed a 👏🏼 reaction from "Anyone still remember ..."
 """
 
 class action_formatter:
@@ -65,14 +69,27 @@ class ChatParser:
                 sender=result.group("from"),
             )
 
-        reaction_test = sm.match_test(r'\s+Reacted to "(?P<prefix>.+?)([.]{3})?" with (?P<reaction>.+?)')
+        reaction_test = sm.match_test(r'\s+Reacted to "(?P<prefix>.+?)([.]{3})?" with (?P<reaction>.+)')
         @action_formatter
         def add_reaction(i):
             result = self.ctx.result
             prefix = result.group("prefix")
+            reaction_pair = (result.group("reaction"), self.current_message.sender)  # Store the sender for possible removals
             previous_message = self.find_previous_message(prefix)
-            if previous_message:
-                previous_message.reactions.append(result.group("reaction"))
+            if previous_message and reaction_pair not in previous_message.reactions:
+                previous_message.reactions.append(reaction_pair)
+            self.current_message = None  # Reactions don't contain actual messages
+
+        remove_reaction_test = sm.match_test(r'\s+Removed a (?P<reaction>.+?) reaction from "(?P<prefix>.+?)([.]{3})?"')
+        @action_formatter
+        def remove_reaction(i):
+            result = self.ctx.result
+            prefix = result.group("prefix")
+            reaction_pair = (result.group("reaction"), self.current_message.sender)  # Only remove reactions from the same sender
+            previous_message = self.find_previous_message(prefix)
+            if previous_message and reaction_pair in previous_message.reactions:
+                previous_message.reactions.remove(reaction_pair)
+            # Ignore mismatched reaction removals
             self.current_message = None  # Reactions don't contain actual messages
 
         reply_test = sm.match_test(r'\s+Replying to "(?P<prefix>.+?)([.]{3})?"')
@@ -101,6 +118,7 @@ class ChatParser:
             "message": [
                 # Reactions do not have any other lines, back to the top state
                 ("reaction", reaction_test, add_reaction, None),
+                ("remove_reaction", remove_reaction_test, remove_reaction, None),
                 ("reply", reply_test, add_reply, "reply_blank"),
                 ("line", message_line_test, add_message_line, "message_lines"),
             ],
@@ -111,6 +129,7 @@ class ChatParser:
             "message_lines": [
                 ("header", header_test, begin_message, "message"),
                 ("line", message_line_test, add_message_line, ...),
+                ("blank", blank_test, None, ...),  # Ignore blank lines that are not part of the message (i.e. no indent)
             ],
             "no_rules": [],  # Test state for no rules error
         }
@@ -148,7 +167,7 @@ def format_message_slack(message, level=0):
     for l in message.message_lines:
         lines.append(f"{INDENT * (level + 1)}{l}")
     if message.reactions:
-        r_counter = Counter(message.reactions)
+        r_counter = Counter(r for r,_ in message.reactions)  # Ignore sender when counting reactions
         reactions = "\N{EM SPACE}\N{EM SPACE}".join(f"{r}\N{NARROW NO-BREAK SPACE}{c}" for r, c in r_counter.items())
         lines.append(f"{INDENT * (level + 1)}{reactions}")
     for r in message.replies:
