@@ -17,18 +17,16 @@ def statemachine(state=None, rules=None, history=..., debug=False, lenient=()):
         dbg = PrefixTracer(**dbg_args)
         tracers.append(dbg)
 
-    # CLEANUP: remove this after refactoring history tracing and backtracing
-    # ctx_args = {"history": history} if history is not ... else {}
-    # ctx = ContextTracer(**ctx_args)  #, lenient=lenient)
-    # tracers.append(ctx)
-
+    checkpoints = []
     if lenient is not True:
         if NoRulesError not in lenient:
-            tracers.append(NoRulesError.tracer())
+            checkpoints.append(NoRulesError.checkpoint())
         if UnrecognizedInputError not in lenient:
-            tracers.append(UnrecognizedInputError.tracer())
+            checkpoints.append(UnrecognizedInputError.checkpoint())
         if UnknownStateError not in lenient:
-            tracers.append(UnknownStateError.tracer())
+            checkpoints.append(UnknownStateError.checkpoint())
+    history_args = {"history": history} if history is not ... else {}
+    tracers.append(CheckpointTracer(*checkpoints, **history_args))
     tracer = MultiTracer(*tracers) if len(tracers) > 1 else tracers[0]
     fsm = StateMachine(state, rules, tracer=tracer)
     return fsm #, ctx
@@ -121,57 +119,36 @@ class StateMachine(object):
 
 ###  Exceptions  ###
 class NoRulesError(RuntimeError):
-    "Raised when when a state has no explicit or implicit rules in a StateMachine"
+    """Raised when when the current state has no explicit or implicit rules."""
     @classmethod
-    def format(cls, **vals):
-        sm_trace = trace_helper(cls, vals.get("trace_lines"))
-        msg = "{sm_trace}'{state}' does not have any explicit nor implicit rules".format(
-            sm_trace=sm_trace,
-            **vals
-        )
-        return msg
+    def checkpoint(cls):
+        def check(tracepoint, **ctx):
+            if tracepoint == Tracepoint.NO_RULES:
+                return "'{state}' does not have any explicit nor implicit rules".format(**ctx)
 
-    @classmethod
-    def tracer(cls, *args, **kwargs):
-        return ErrorTracer(Tracepoint.NO_RULES, cls, *args, **kwargs)
+        return (check, cls)
 
 
 class UnrecognizedInputError(ValueError):
-    "Raised when input is not matched by any rule in a StateMachine"
+    """Raised when input is not matched by any explicit or implicit rule in the current state."""
     @classmethod
-    def format(cls, **vals):
-        sm_trace = trace_helper(cls, vals.get("trace_lines"))
-        msg = "{sm_trace}'{state}' did not recognize {input_count}: '{input}'".format(
-            sm_trace=sm_trace,
-            **vals
-        )
-        return msg
+    def checkpoint(cls):
+        def check(tracepoint, **ctx):
+            if tracepoint == Tracepoint.UNRECOGNIZED:
+                return "'{state}' did not recognize {input_count}: '{input}'".format(**ctx)
 
-    @classmethod
-    def tracer(cls, *args, **kwargs):
-        return ErrorTracer(Tracepoint.UNRECOGNIZED, cls, *args, **kwargs)
+        return (check, cls)
 
 
 class UnknownStateError(RuntimeError):
-    "Raised when a StateMachine transitions to an unknown state"
+    """Raised when a machine transitions to an unknown state."""
     @classmethod
-    def format(cls, **vals):
-        sm_trace = trace_helper(cls, vals.get("trace_lines"))
-        msg = "{sm_trace}'{new_state}' is not in the ruleset".format(
-            sm_trace=sm_trace,
-            **vals
-        )
-        return msg
+    def checkpoint(cls):
+        def check(tracepoint, **ctx):
+            if tracepoint == Tracepoint.UNKNOWN_STATE:
+                return "'{new_state}' is not in the ruleset".format(**ctx)
 
-    @classmethod
-    def tracer(cls, *args, **kwargs):
-        return ErrorTracer(Tracepoint.UNKNOWN_STATE, cls, *args, **kwargs)
-
-
-def trace_helper(err, trace_lines):
-    if not trace_lines:
-        return ""
-    return f"StateMachine Traceback (most recent last):\n{trace_lines}\n{err.__name__}: "
+        return (check, cls)
 #####
 
 
@@ -194,41 +171,11 @@ class MultiTracer:
             t(tp, **vals)
 
 
-class ContextTracer(object):
-    """Collects the context and history of a StateMachine as it evaluates an input.
-
-    ContextTracer attributes are added and updated as the machine processes as follows:
-
-    Input received:
-    - tracepoint: The current tracepoint, updated at each step
-    - state: The current state
-    - input: The raw input
-    - input_count: The count of inputs received, the first input is 1
-    - no_rules: constant "(No rules)" if no explicit nor implicit rules were found for the current state
-
-    Rule evaluation begins:
-    - label: The label of the rule being evaluated, usually a name or a distinct tag
-    - test: The test callable or literal that will be evaluated
-    - action: The action callable or literal that will be evaluated if the test succeeds
-    - dest: The destination callable or literal that will define the new state if the test succeeds
-
-    Rule succeeds:
-    - result: The result produced by a successful test (e.g. the match object from a regex)
-
-    Action evaluated:
-    - response: The value produced by evaluating the action of a successful rule
-
-    Destination evaluated:
-    - new_state: The value produced by evaluating the destination of a successful rule
-    - unknown_state: constant "(Unknown state)" if the new_state is not in the ruleset
-
-    All rules failed:
-    - unrecognized: constant "(No match)"
-
-    Attributes can be tested for with e.g. '"result" in ctx' or retrieved leniently with 'ctx.get("result" [, default])'
-    """
-    def __init__(self, history=10, compact=True):
-        self.context = {}
+class CheckpointTracer(object):
+    """Raises an error with a traceback of recent machine transitions when a checkpoint check returns a message."""
+    def __init__(self, *checkpoints, history=10, compact=True):
+        self.checkpoints = list(checkpoints)  # List so it can be manipulated later if desired
+        self.context = {}  # Simpler to keep our own context than to try to get a reference to the machine
         self.input_count = 0
         if history is None or history < 0:
             history = None  # Unlimited depth
@@ -245,13 +192,13 @@ class ContextTracer(object):
             values["input_count"] = self.input_count
             self.context = values
         else:
-            if tracepoint == Tracepoint.NO_RULES:
-                values["no_rules"] = "(No rules)"
-            if tracepoint == Tracepoint.UNRECOGNIZED:
-                values["unrecognized"] = "(No match)"
-            if tracepoint == Tracepoint.UNKNOWN_STATE:
-                values["unknown_state"] = "(Unknown state)"
             self.context.update(values)
+
+        for check, err in self.checkpoints:
+            msg = check(**self.context)
+            if msg:
+                trace_lines = "\n".join(self.format_trace())
+                raise err(f"StateMachine Traceback (most recent last):\n{trace_lines}\n{err.__name__}: {msg}")
 
         if self.compact and tracepoint == Tracepoint.NEW_STATE:
             self.fold_loop()
@@ -277,19 +224,11 @@ class ContextTracer(object):
                     self.history.pop()
                     self.history.pop()
 
-    ## Access context
-    def get(self, key, default=None):
-        return self.context.get(key, default)
-
-    def __contains__(self, key):
-        return key in self.context
-
-    def __getattr__(self, attr):
-        if attr not in self.context:
-            raise AttributeError(f"context currently has no attribute '{attr}'")
-        return self.context[attr]
-
     ## Formatting
+    def format_trace(self):
+        transitions = (*self.history, self.context)
+        return [ self.format_transition(t) for t in transitions ]
+
     def format_transition(self, t):
         tp = t.get("tracepoint", "Tracepoint missing")
         if tp == Tracepoint.NEW_STATE:
@@ -298,43 +237,14 @@ class ContextTracer(object):
             return looped + "{input_count}: {state}('{input}') > {label}: {result} -- {response} --> {new_state}".format(**t)
         if tp == Tracepoint.NO_RULES:
             # No rules has its own format
-            return "{input_count}: {state} > No rules".format(**t)
+            return "{input_count}: {state} >> No rules".format(**t)
         if tp == Tracepoint.UNRECOGNIZED:
             # Unrecognized has its own format
-            return "{input_count}: {state}('{input}') > No match".format(**t)
+            return "{input_count}: {state}('{input}') >> Unrecognized".format(**t)
         if tp == Tracepoint.UNKNOWN_STATE:
             # Unknown state has its own format
-            return "{input_count}: {state}('{input}') > Unknown state: {new_state}".format(**t)
+            return "{input_count}: {state}('{input}') >> Unknown state: {new_state}".format(**t)
         return f"PARTIAL: {str(t)}"  # If transition somehow does not have a known formatting, simply dump it for debugging  FIXME: do better
-
-    def format_trace(self):
-        transitions = (*self.history, self.context)
-        return [ self.format_transition(t) for t in transitions ]
-
-
-class ErrorTracer(object):
-    """Raises an error when a tracepoint is called."""
-    def __init__(self, error_point, error, history=10):
-        self.error_point = error_point
-        self.error = error
-        self.input_count = 0
-        self.context = {"input_count": self.input_count}  # REM: do we want configurable context providers?
-        if history is None or history < 0:
-            history = None  # Unlimited depth
-        self.trace = deque(maxlen=history)  # TODO: allow custom trace providers
-
-    def __call__(self, tp, **vals):
-        if tp == Tracepoint.INPUT:
-            self.input_count += 1
-            self.context = {"input_count": self.input_count}
-        self.context.update(vals)
-        self.trace.append(tp.value.format(**vals))
-        if tp == self.error_point:
-            msg = self.error.format(
-                trace_lines="\n".join(self.trace),
-                **self.context
-            )
-            raise self.error(msg)
 #####
 
 
