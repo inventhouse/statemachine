@@ -184,12 +184,14 @@ def PrefixTracer(prefix="T>", printer=print):
     return t
 
 
-def MultiTracer(*tracers):
+class MultiTracer:
     """Combines multiple tracers"""
-    def mt(tp, **vals):
-        for t in tracers:
+    def __init__(self, *tracers):
+        self.tracers = tracers
+
+    def __call__(self, tp, **vals):
+        for t in self.tracers:
             t(tp, **vals)
-    return mt
 
 
 class ContextTracer(object):
