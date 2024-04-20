@@ -6,9 +6,9 @@ import re
 
 
 def statemachine(state=None, rules=None, history=..., debug=False, lenient=()):
-    """Create a batteries-included state machine with context object.
+    """Create a batteries-included state machine with convenience options.
 
-    Returns a StateMachine and a ContextTracer.  The machine is pre-configured to collect context and reject unknown input and states; this is the most common way to set up a machine.  Optionally it can also have a verbose debugging tracer with configurable prefix added.
+    Returns a StateMachine pre-configured to reject unknown input and states; this is the most common way to set up a machine.  Optionally it can also have a verbose debugging tracer with configurable prefix added.
     """
 
     tracers = []
@@ -49,17 +49,20 @@ class Tracepoint(Enum):
 class StateMachine(object):
     """State machine engine that makes minimal assumptions but includes some nice conveniences.
 
-    State is simply the starting state for the machine.
-
-    The rules dictionary maps each state to a list of rule tuples, each of which includes a label, a test, an action, and a destination; more about rule elements in the __call__ documentation.
-
-    Rules associated with the special '...' state are implicitly added to all states' rules, to be evaluated after explicit rules.
-
-    Tracer is an optional callable that takes a tracepoint string and its associated values, and is called at critical points in the input processing to follow the internal operation of the machine.  A simple tracer can produce logs that are extremely helpful when debugging, see PrefixTracer for an example.  Tracepoints are distinct constants which can be used by more advanced tracers for selective verbosity, state management, raising errors for unrecognized input or states, and other things.  Tracer values can be collected for later use or to provide context for more sophisticated tests or actions; see ContextTracer.  Tracers can be stacked using MultiTracer.
-
-    Public attributes can be manipulated after init; for example a rule action could set the state machine's tracer to start or stop logging of the machine's operation.
+    Public attributes can be manipulated after init; it is common to create the machine and set the rules after the ruleset has been defined, but more dynamic things are possible, for example a rule action could set the state machine's tracer to start or stop logging of the machine's operation.
     """
+
     def __init__(self, state=None, rules=None, tracer=None):
+        """Create a state machine optionally with a starting state rules, and tracer; state and rules should be set before the machine is used.
+
+        State is simply the starting state for the machine.
+
+        The rules dictionary maps each state to a list of rule tuples, each of which includes a label, a test, an action, and a destination; more about rule elements in the __call__ documentation.
+
+        Rules associated with the special '...' state are implicitly added to all states' rules, to be evaluated after explicit rules.
+
+        Tracer is an optional callable that takes a tracepoint string and its associated values, and is called at critical points in the input processing to follow the internal operation of the machine.  A simple tracer can produce logs that are extremely helpful when debugging, see PrefixTracer for an example.  Tracepoints are distinct constants which can be used by more advanced tracers for selective verbosity, raising errors for unrecognized input or states, and other things.  Tracer values can be collected for later use; see ContextTracer.  Tracers can be stacked using MultiTracer.
+        """
         # Starting state and rules can be set after init, but really should be set before using the machine
         self.state = state
         # rules dict looks like { state: [(label, test, action, new_state), ...], ...}
@@ -69,24 +72,26 @@ class StateMachine(object):
         self._input_count = 0
 
     def _trace(self, tp, **vals):
+        """Updates the context and calls an external tracer if one is set."""
         self.context["tracepoint"] = tp
         self.context.update(vals)
         if self.tracer:
             self.tracer(tp, **vals)
 
     def __call__(self, i):
-        """
-        Tests an input against the rules for the current state plus the global rules from the None state.
+        """Tests an input against the rules for the current state plus the global rules from the '...' state.
+
+        As the rules are evaluated, a context dictionary is built; these keys and values are available to callable rule components as keyword arguments.  Context arguments avalable when rules are evaluated are: input, input_count, state, and elements of the currently evaluating rule: label, test, action, and dest.
 
         Each rule consists of a label, test, action, and destination, which work as follows:
 
         - Label: string used for identifying the "successful" rule when tracing.
 
-        - Test: if callable, it will be called with the input, otherwise it will be tested for equality with the input; if the result is truish, the rule succeeds and no other rules are tested.
+        - Test: if callable, it will be called with context arguments, otherwise it will be tested for equality with the input; if the result is truish, the rule succeeds and no other rules are tested; the result is added to the context.
 
-        - Action: when a test succeeds, the action is evaluated and the response is returned by this call.  If action callable, it will be called with the input; it is common for the action to have side-effects that are intended to happen when the test is met.  If it is not callable, the action literal will be returned.
+        - Action: when a test succeeds, the action is evaluated and the response is added to the context and returned by this call.  If action callable, it will be called with context arguments, including 'result' from the test above; it is common for the action to have side-effects that are intended to happen when the test is met.  If it is not callable, the action literal will be returned.
 
-        - Destination: finally, if destination is callable it will be called with the current state to get the destination state, otherwise the literal value will be the destination.  If the destination state is '...', the machine will remain in the same state (self-transition or "loop".)  Callable destinations can implement state push/pop for recursion, state exit/enter actions, non-deterministic state changes, and other interesting things.
+        - Destination: finally, if destination is callable it will be called with context arguments, including 'result' and 'response' above, to get the destination state, otherwise the literal value will be the destination.  If the destination state is '...', the machine will remain in the same state (self-transition or "loop".)  Callable destinations can implement state push/pop for recursion, state exit/enter actions, non-deterministic state changes, and other interesting things.
         """
         self.context = {}
         self._input_count += 1
@@ -172,7 +177,7 @@ def trace_helper(err, trace_lines):
 
 ###  Tracing  ###
 def PrefixTracer(prefix="T>", printer=print):
-    "Prints tracepoints with a distinctive prefix and, optionally, to a separate destination than other output"
+    """Prints tracepoints with a distinctive prefix and, optionally, to a separate destination than other output"""
     def t(tp, **vals):
         msg = f"{prefix} {tp.value.format(**vals)}" if prefix else tp.value.format(**vals)
         printer(msg)
@@ -180,7 +185,7 @@ def PrefixTracer(prefix="T>", printer=print):
 
 
 def MultiTracer(*tracers):
-    "Combines multiple tracers"
+    """Combines multiple tracers"""
     def mt(tp, **vals):
         for t in tracers:
             t(tp, **vals)
@@ -306,7 +311,7 @@ class ContextTracer(object):
 
 
 class ErrorTracer(object):
-    "Raises an error when a tracepoint is called"
+    """Raises an error when a tracepoint is called."""
     def __init__(self, error_point, error, history=10):
         self.error_point = error_point
         self.error = error
@@ -333,7 +338,7 @@ class ErrorTracer(object):
 
 ###  Test Helpers  ###
 class match_test(object):
-    "Callable to match input with a regex and format a nice __str__"
+    """Callable to match input with a regex and format a nice __str__."""
     def __init__(self, test_re_str):
         self.test_re = re.compile(test_re_str)
 
@@ -345,7 +350,7 @@ class match_test(object):
 
 
 class search_test(object):
-    "Callable to search input with a regex and format a nice __str__"
+    """Callable to search input with a regex and format a nice __str__."""
     def __init__(self, test_re_str):
         self.test_re = re.compile(test_re_str)
 
@@ -357,7 +362,7 @@ class search_test(object):
 
 
 class in_test(object):
-    "Callable to test if input is in a collection and format a nice __str__"
+    """Callable to test if input is in a collection and format a nice __str__."""
     def __init__(self, in_list):
         self.in_list = in_list
 
