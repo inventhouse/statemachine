@@ -185,9 +185,9 @@ def PrefixTracer(prefix="T>", printer=print):
 
 
 class MultiTracer:
-    """Combines multiple tracers"""
+    """Combines multiple tracers; tracers list can be manipulated at any time to add or remove tracers."""
     def __init__(self, *tracers):
-        self.tracers = tracers
+        self.tracers = list(tracers)
 
     def __call__(self, tp, **vals):
         for t in self.tracers:
