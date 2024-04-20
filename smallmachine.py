@@ -1,6 +1,7 @@
 # SmallMachine: Copyright © 2021-2024 Benjamin Holt - MIT License
 
 from collections import deque
+from enum import Enum
 import re
 
 
@@ -32,6 +33,18 @@ def statemachine(state=None, rules=None, history=..., debug=False, lenient=()):
     return fsm, ctx
 
 
+class Tracepoint(Enum):
+    # The formatter keys are all distinct so they can be aggregated with dict.update; see ContextTracer for an example implementation
+    INPUT = "{state}('{input}')"
+    NO_RULES = "\t(No rules: {state})"  # Consider raising NoRulesError
+    RULE = "  {label}: {test} -- {action} --> {dest}"
+    RESULT = "  {label}: {result}"
+    RESPONSE = "    {response}"
+    NEW_STATE = "    --> {new_state}"
+    UNRECOGNIZED = "\t(No match: '{input}')"  # Consider raising UnrecognizedInputError
+    UNKNOWN_STATE = "\t(Unknown state: {new_state})"  # Consider raising UnknownStateError
+
+
 class StateMachine(object):
     """State machine engine that makes minimal assumptions but includes some nice conveniences.
 
@@ -45,22 +58,12 @@ class StateMachine(object):
 
     Public attributes can be manipulated after init; for example a rule action could set the state machine's tracer to start or stop logging of the machine's operation.
     """
-    def __init__(self, state=None, rules=None, tracer=lambda m, **v: None):
+    def __init__(self, state=None, rules=None, tracer=lambda tp, **v: None):
         # Starting state and rules can be set after init, but really should be set before using the machine
         self.state = state
         # rules dict looks like { state: [(label, test, action, new_state), ...], ...}
         self.rules = rules if rules is not None else {}
         self.tracer = tracer
-
-    # The formatter keys are all distinct so they can be aggregated with dict.update; see ContextTracer for an example implementation
-    TRACE_INPUT = "{state}('{input}')"
-    TRACE_NO_RULES = "\t(No rules: {state})"  # Consider raising NoRulesError
-    TRACE_RULE = "  {label}: {test} -- {action} --> {dest}"
-    TRACE_RESULT = "  {label}: {result}"
-    TRACE_RESPONSE = "    {response}"
-    TRACE_NEW_STATE = "    --> {new_state}"
-    TRACE_UNRECOGNIZED = "\t(No match: '{input}')"  # Consider raising UnrecognizedInputError
-    TRACE_UNKNOWN_STATE = "\t(Unknown state: {new_state})"  # Consider raising UnknownStateError
 
     def __call__(self, i):
         """
@@ -76,26 +79,26 @@ class StateMachine(object):
 
         - Destination: finally, if destination is callable it will be called with the current state to get the destination state, otherwise the literal value will be the destination.  If the destination state is '...', the machine will remain in the same state (self-transition or "loop".)  Callable destinations can implement state push/pop for recursion, state exit/enter actions, non-deterministic state changes, and other interesting things.
         """
-        self.tracer(StateMachine.TRACE_INPUT, state=self.state, input=i)
+        self.tracer(Tracepoint.INPUT, state=self.state, input=i)
         rule_list = self.rules.get(self.state, []) + self.rules.get(..., [])
         if not rule_list:
-            self.tracer(StateMachine.TRACE_NO_RULES, state=self.state)
+            self.tracer(Tracepoint.NO_RULES, state=self.state)
         for l,t,a,d in rule_list:
-            self.tracer(StateMachine.TRACE_RULE, label=l, test=t, action=a, dest=d)
+            self.tracer(Tracepoint.RULE, label=l, test=t, action=a, dest=d)
             result = t(i) if callable(t) else t == i
             if result:
-                self.tracer(StateMachine.TRACE_RESULT, label=l, result=result)
+                self.tracer(Tracepoint.RESULT, label=l, result=result)
                 response = a(i) if callable(a) else a
-                self.tracer(StateMachine.TRACE_RESPONSE, response=response)
+                self.tracer(Tracepoint.RESPONSE, response=response)
                 dest = d(self.state) if callable(d) else d
-                self.tracer(StateMachine.TRACE_NEW_STATE, new_state=dest)
+                self.tracer(Tracepoint.NEW_STATE, new_state=dest)
                 if dest is not ...:
                     if dest not in self.rules:
-                        self.tracer(StateMachine.TRACE_UNKNOWN_STATE, new_state=dest)
+                        self.tracer(Tracepoint.UNKNOWN_STATE, new_state=dest)
                     self.state = dest
                 return response
         else:
-            self.tracer(StateMachine.TRACE_UNRECOGNIZED, input=i)
+            self.tracer(Tracepoint.UNRECOGNIZED, input=i)
             return None
 #####
 
@@ -114,7 +117,7 @@ class NoRulesError(RuntimeError):
 
     @classmethod
     def tracer(cls, *args, **kwargs):
-        return ErrorTracer(StateMachine.TRACE_NO_RULES, cls, *args, **kwargs)
+        return ErrorTracer(Tracepoint.NO_RULES, cls, *args, **kwargs)
 
 
 class UnrecognizedInputError(ValueError):
@@ -130,7 +133,7 @@ class UnrecognizedInputError(ValueError):
 
     @classmethod
     def tracer(cls, *args, **kwargs):
-        return ErrorTracer(StateMachine.TRACE_UNRECOGNIZED, cls, *args, **kwargs)
+        return ErrorTracer(Tracepoint.UNRECOGNIZED, cls, *args, **kwargs)
 
 
 class UnknownStateError(RuntimeError):
@@ -146,7 +149,7 @@ class UnknownStateError(RuntimeError):
 
     @classmethod
     def tracer(cls, *args, **kwargs):
-        return ErrorTracer(StateMachine.TRACE_UNKNOWN_STATE, cls, *args, **kwargs)
+        return ErrorTracer(Tracepoint.UNKNOWN_STATE, cls, *args, **kwargs)
 
 
 def trace_helper(err, trace_lines):
@@ -160,7 +163,7 @@ def trace_helper(err, trace_lines):
 def PrefixTracer(prefix="T>", printer=print):
     "Prints tracepoints with a distinctive prefix and, optionally, to a separate destination than other output"
     def t(tp, **vals):
-        msg = f"{prefix} {tp.format(**vals)}" if prefix else tp.format(**vals)
+        msg = f"{prefix} {tp.value.format(**vals)}" if prefix else tp.value.format(**vals)
         printer(msg)
     return t
 
@@ -217,22 +220,22 @@ class ContextTracer(object):
     ## Collect context & history
     def __call__(self, tracepoint, **values):
         values["tracepoint"] = tracepoint
-        if tracepoint == StateMachine.TRACE_INPUT:
+        if tracepoint == Tracepoint.INPUT:
             if self.context:
                 self.history.append(self.context)
             self.input_count += 1
             values["input_count"] = self.input_count
             self.context = values
         else:
-            if tracepoint == StateMachine.TRACE_NO_RULES:
+            if tracepoint == Tracepoint.NO_RULES:
                 values["no_rules"] = "(No rules)"
-            if tracepoint == StateMachine.TRACE_UNRECOGNIZED:
+            if tracepoint == Tracepoint.UNRECOGNIZED:
                 values["unrecognized"] = "(No match)"
-            if tracepoint == StateMachine.TRACE_UNKNOWN_STATE:
+            if tracepoint == Tracepoint.UNKNOWN_STATE:
                 values["unknown_state"] = "(Unknown state)"
             self.context.update(values)
 
-        if self.compact and tracepoint == StateMachine.TRACE_NEW_STATE:
+        if self.compact and tracepoint == Tracepoint.NEW_STATE:
             self.fold_loop()
 
     def fold_loop(self):
@@ -271,17 +274,17 @@ class ContextTracer(object):
     ## Formatting
     def format_transition(self, t):
         tp = t.get("tracepoint", "Tracepoint missing")
-        if tp == StateMachine.TRACE_NEW_STATE:
+        if tp == Tracepoint.NEW_STATE:
             # Most transitions will be "complete"
             looped = "    ({loop_count} loops in '{state}' elided)\n".format_map(t) if "loop_count" in t else ""
             return looped + "{input_count}: {state}('{input}') > {label}: {result} -- {response} --> {new_state}".format(**t)
-        if tp == StateMachine.TRACE_NO_RULES:
+        if tp == Tracepoint.NO_RULES:
             # No rules has its own format
             return "{input_count}: {state} > No rules".format(**t)
-        if tp == StateMachine.TRACE_UNRECOGNIZED:
+        if tp == Tracepoint.UNRECOGNIZED:
             # Unrecognized has its own format
             return "{input_count}: {state}('{input}') > No match".format(**t)
-        if tp == StateMachine.TRACE_UNKNOWN_STATE:
+        if tp == Tracepoint.UNKNOWN_STATE:
             # Unknown state has its own format
             return "{input_count}: {state}('{input}') > Unknown state: {new_state}".format(**t)
         return f"PARTIAL: {str(t)}"  # If transition somehow does not have a known formatting, simply dump it for debugging  FIXME: do better
@@ -303,11 +306,11 @@ class ErrorTracer(object):
         self.trace = deque(maxlen=history)  # TODO: allow custom trace providers
 
     def __call__(self, tp, **vals):
-        if tp == StateMachine.TRACE_INPUT:
+        if tp == Tracepoint.INPUT:
             self.input_count += 1
             self.context = {"input_count": self.input_count}
         self.context.update(vals)
-        self.trace.append(tp.format(**vals))
+        self.trace.append(tp.value.format(**vals))
         if tp == self.error_point:
             msg = self.error.format(
                 trace_lines="\n".join(self.trace),
