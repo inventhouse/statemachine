@@ -35,7 +35,7 @@ def statemachine(state=None, rules=None, history=..., debug=False, lenient=()):
 
 class Tracepoint(Enum):
     # The formatter keys are all distinct so they can be aggregated with dict.update; see ContextTracer for an example implementation
-    INPUT = "{state}('{input}')"
+    INPUT = "{input_count}: {state}('{input}')"
     NO_RULES = "\t(No rules: {state})"  # Consider raising NoRulesError
     RULE = "  {label}: {test} -- {action} --> {dest}"
     RESULT = "  {label}: {result}"
@@ -58,12 +58,20 @@ class StateMachine(object):
 
     Public attributes can be manipulated after init; for example a rule action could set the state machine's tracer to start or stop logging of the machine's operation.
     """
-    def __init__(self, state=None, rules=None, tracer=lambda tp, **v: None):
+    def __init__(self, state=None, rules=None, tracer=None):
         # Starting state and rules can be set after init, but really should be set before using the machine
         self.state = state
         # rules dict looks like { state: [(label, test, action, new_state), ...], ...}
         self.rules = rules if rules is not None else {}
         self.tracer = tracer
+        self.context = {}
+        self._input_count = 0
+
+    def _trace(self, tp, **vals):
+        self.context["tracepoint"] = tp
+        self.context.update(vals)
+        if self.tracer:
+            self.tracer(tp, **vals)
 
     def __call__(self, i):
         """
@@ -79,26 +87,28 @@ class StateMachine(object):
 
         - Destination: finally, if destination is callable it will be called with the current state to get the destination state, otherwise the literal value will be the destination.  If the destination state is '...', the machine will remain in the same state (self-transition or "loop".)  Callable destinations can implement state push/pop for recursion, state exit/enter actions, non-deterministic state changes, and other interesting things.
         """
-        self.tracer(Tracepoint.INPUT, state=self.state, input=i)
+        self.context = {}
+        self._input_count += 1
+        self._trace(Tracepoint.INPUT, input_count=self._input_count, state=self.state, input=i)
         rule_list = self.rules.get(self.state, []) + self.rules.get(..., [])
         if not rule_list:
-            self.tracer(Tracepoint.NO_RULES, state=self.state)
+            self._trace(Tracepoint.NO_RULES, state=self.state)
         for l,t,a,d in rule_list:
-            self.tracer(Tracepoint.RULE, label=l, test=t, action=a, dest=d)
+            self._trace(Tracepoint.RULE, label=l, test=t, action=a, dest=d)
             result = t(i) if callable(t) else t == i
             if result:
-                self.tracer(Tracepoint.RESULT, label=l, result=result)
+                self._trace(Tracepoint.RESULT, label=l, result=result)
                 response = a(i) if callable(a) else a
-                self.tracer(Tracepoint.RESPONSE, response=response)
+                self._trace(Tracepoint.RESPONSE, response=response)
                 dest = d(self.state) if callable(d) else d
-                self.tracer(Tracepoint.NEW_STATE, new_state=dest)
+                self._trace(Tracepoint.NEW_STATE, new_state=dest)
                 if dest is not ...:
                     if dest not in self.rules:
-                        self.tracer(Tracepoint.UNKNOWN_STATE, new_state=dest)
+                        self._trace(Tracepoint.UNKNOWN_STATE, new_state=dest)
                     self.state = dest
                 return response
         else:
-            self.tracer(Tracepoint.UNRECOGNIZED, input=i)
+            self._trace(Tracepoint.UNRECOGNIZED, input=i)
             return None
 #####
 
