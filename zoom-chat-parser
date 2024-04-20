@@ -54,16 +54,16 @@ class ChatParser:
         # Store messages LIFO to make finding previous message easy for replies and reactions
         self.message_stack = deque()
         self.current_message = None
-        # self.parser, _ = sm.statemachine()
-        self.parser, _ = sm.statemachine(debug=True)
+        self.parser = sm.statemachine()
+        # self.parser = sm.statemachine(debug=True)
 
         header_test = sm.match_test(r"(?P<time_str>(?P<hour>\d{2}):(?P<minute>\d{2}):(?P<second>\d{2})) From (?P<from>.+?) to (?P<to>.+?):")
         @action_formatter
-        def begin_message(i):
+        def begin_message(result, **_):
             # Push any previous message onto the stack and start a new one
             if self.current_message:
                 self.message_stack.appendleft(self.current_message)
-            result = self.parser.context["result"]
+            # result = self.parser.context["result"]
             self.current_message = ChatMessage(
                 time_str=result.group("time_str"),
                 sender=result.group("from"),
@@ -71,8 +71,8 @@ class ChatParser:
 
         reaction_test = sm.match_test(r'\s+Reacted to "(?P<prefix>.+?)([.]{3})?" with (?P<reaction>.+)')
         @action_formatter
-        def add_reaction(i):
-            result = self.parser.context["result"]
+        def add_reaction(result, **_):
+            # result = self.parser.context["result"]
             prefix = result.group("prefix")
             reaction_pair = (result.group("reaction"), self.current_message.sender)  # Store the sender for possible removals
             previous_message = self.find_previous_message(prefix)
@@ -82,8 +82,8 @@ class ChatParser:
 
         remove_reaction_test = sm.match_test(r'\s+Removed a (?P<reaction>.+?) reaction from "(?P<prefix>.+?)([.]{3})?"')
         @action_formatter
-        def remove_reaction(i):
-            result = self.parser.context["result"]
+        def remove_reaction(result, **_):
+            # result = self.parser.context["result"]
             prefix = result.group("prefix")
             reaction_pair = (result.group("reaction"), self.current_message.sender)  # Only remove reactions from the same sender
             previous_message = self.find_previous_message(prefix)
@@ -95,8 +95,8 @@ class ChatParser:
         reply_test = sm.match_test(r'\s+Replying to "(?P<prefix>.+?)([.]{3})?"')
         blank_test = sm.match_test(r"\s*$")
         @action_formatter
-        def add_reply(i):
-            result = self.parser.context["result"]
+        def add_reply(result, **_):
+            # result = self.parser.context["result"]
             prefix = result.group("prefix")
             self.current_message.primary_message_prefix = prefix
             primary_message = self.find_previous_message(prefix)
@@ -106,8 +106,8 @@ class ChatParser:
 
         message_line_test = sm.match_test(r"\s+(?P<line>.*)")
         @action_formatter
-        def add_message_line(i):
-            result = self.parser.context["result"]
+        def add_message_line(result, **_):
+            # result = self.parser.context["result"]
             l = result.group("line")
             self.current_message.message_lines.append(l)
 

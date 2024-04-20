@@ -17,9 +17,10 @@ def statemachine(state=None, rules=None, history=..., debug=False, lenient=()):
         dbg = PrefixTracer(**dbg_args)
         tracers.append(dbg)
 
-    ctx_args = {"history": history} if history is not ... else {}
-    ctx = ContextTracer(**ctx_args)  #, lenient=lenient)
-    tracers.append(ctx)
+    # CLEANUP: remove this after refactoring history tracing and backtracing
+    # ctx_args = {"history": history} if history is not ... else {}
+    # ctx = ContextTracer(**ctx_args)  #, lenient=lenient)
+    # tracers.append(ctx)
 
     if lenient is not True:
         if NoRulesError not in lenient:
@@ -30,7 +31,7 @@ def statemachine(state=None, rules=None, history=..., debug=False, lenient=()):
             tracers.append(UnknownStateError.tracer())
     tracer = MultiTracer(*tracers) if len(tracers) > 1 else tracers[0]
     fsm = StateMachine(state, rules, tracer=tracer)
-    return fsm, ctx
+    return fsm #, ctx
 
 
 class Tracepoint(Enum):
@@ -95,12 +96,12 @@ class StateMachine(object):
             self._trace(Tracepoint.NO_RULES, state=self.state)
         for l,t,a,d in rule_list:
             self._trace(Tracepoint.RULE, label=l, test=t, action=a, dest=d)
-            result = t(i) if callable(t) else t == i
+            result = t(**self.context) if callable(t) else t == i
             if result:
                 self._trace(Tracepoint.RESULT, label=l, result=result)
-                response = a(i) if callable(a) else a
+                response = a(**self.context) if callable(a) else a
                 self._trace(Tracepoint.RESPONSE, response=response)
-                dest = d(self.state) if callable(d) else d
+                dest = d(**self.context) if callable(d) else d
                 self._trace(Tracepoint.NEW_STATE, new_state=dest)
                 if dest is not ...:
                     if dest not in self.rules:
@@ -336,11 +337,11 @@ class match_test(object):
     def __init__(self, test_re_str):
         self.test_re = re.compile(test_re_str)
 
-    def __call__(self, i):
-        return self.test_re.match(i)
+    def __call__(self, input, **_):
+        return self.test_re.match(input)
 
     def __str__(self):
-        return f"'{self.test_re.pattern}'.match(i)"
+        return f"'{self.test_re.pattern}'.match(input)"
 
 
 class search_test(object):
@@ -348,11 +349,11 @@ class search_test(object):
     def __init__(self, test_re_str):
         self.test_re = re.compile(test_re_str)
 
-    def __call__(self, i):
-        return self.test_re.search(i)
+    def __call__(self, input, **_):
+        return self.test_re.search(input)
 
     def __str__(self):
-        return f"'{self.test_re.pattern}'.search(i)"
+        return f"'{self.test_re.pattern}'.search(input)"
 
 
 class in_test(object):
@@ -360,9 +361,9 @@ class in_test(object):
     def __init__(self, in_list):
         self.in_list = in_list
 
-    def __call__(self, i):
-        return i in self.in_list
+    def __call__(self, input, **_):
+        return input in self.in_list
 
     def __str__(self):
-        return f"i in {self.in_list}"
+        return f"input in {self.in_list}"
 #####
