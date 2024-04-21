@@ -5,7 +5,7 @@ from enum import Enum
 import re
 
 
-def statemachine(state=None, rules=None, debug=False, history=..., checkpoints=...):
+def statemachine(rules=None, state=None, debug=False, history=..., checkpoints=...):
     """Create a batteries-included state machine with convenience options.
 
     Returns a StateMachine pre-configured to reject unknown input and states; this is the most common way to set up a machine.  Optionally it can also have a verbose debugging tracer with configurable prefix added.
@@ -23,7 +23,7 @@ def statemachine(state=None, rules=None, debug=False, history=..., checkpoints=.
     history_args = {"history": history} if history is not ... else {}
     tracers.append(CheckpointTracer(**checkpoints_args, **history_args))
     tracer = MultiTracer(*tracers) if len(tracers) > 1 else tracers[0]
-    return StateMachine(state, rules, tracer=tracer)
+    return StateMachine(rules=rules, state=state, tracer=tracer)
 #####
 
 
@@ -96,14 +96,14 @@ class StateMachine(object):
     Public attributes can be manipulated after init; it is common to create the machine and set the rules after the ruleset has been defined, but more dynamic things are possible, for example a rule action could set the state machine's tracer to start or stop logging of the machine's operation.
     """
 
-    def __init__(self, state=None, rules=None, tracer=None):
+    def __init__(self, rules=None, state=None, tracer=None):
         """Create a state machine optionally with a starting state rules, and tracer; state and rules should be set before the machine is used.
-
-        State is simply the starting state for the machine.
 
         The rules dictionary maps each state to a list of rule tuples, each of which includes a label, a test, an action, and a destination; more about rule elements in the __call__ documentation.
 
         Rules associated with the special '...' state are implicitly added to all states' rules, to be evaluated after explicit rules.
+
+        State is simply the starting state for the machine; defaults to None which is not a special value, it is simply a valid state and a convenient convention for the starting state.
 
         Tracer is an optional callable that takes a tracepoint string and its associated values, and is called at critical points in the input processing to follow the internal operation of the machine.  A simple tracer can produce logs that are extremely helpful when debugging, see PrefixTracer for an example.  Tracepoints are distinct constants which can be used by more advanced tracers for selective verbosity, raising errors for unrecognized input or states, and other things.  Tracer values can be collected for later use; see ContextTracer.  Tracers can be stacked using MultiTracer.
         """

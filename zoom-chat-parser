@@ -7,17 +7,6 @@ from dataclasses import dataclass, field
 import smallmachine as sm
 
 
-@dataclass
-class ChatMessage:
-    time_str: str
-    sender: str
-    message_lines: list[str] = field(default_factory=list)
-    replies: list["ChatMessage"] = field(default_factory=list)
-    primary_message_prefix: str = None  # Primary prefix is enough to identify the message it's replying to
-    # primary_message: "ChatMessage" = None  # Could switch to this if we need to navigate up the tree
-    reactions: list[str] = field(default_factory=list)
-
-
 chat_lines = """
 15:01:39 From Michael M to Everyone:
     When are we going to have AI run team summit?
@@ -38,6 +27,18 @@ chat_lines = """
 15:07:20 From Becca S to Everyone:
     Removed a 👏🏼 reaction from "Anyone still remember ..."
 """
+
+
+@dataclass
+class ChatMessage:
+    time_str: str
+    sender: str
+    message_lines: list[str] = field(default_factory=list)
+    replies: list["ChatMessage"] = field(default_factory=list)
+    primary_message_prefix: str = None  # Primary prefix is enough to identify the message it's replying to
+    # primary_message: "ChatMessage" = None  # Could switch to this if we need to navigate up the tree
+    reactions: list[str] = field(default_factory=list)
+
 
 class ChatParser:
     def __init__(self) -> None:
@@ -122,8 +123,8 @@ class ChatParser:
             ],
             "no_rules": [],  # Test state for no rules error
         }
-        # self.parser = sm.statemachine(rules=rules)
-        self.parser = sm.statemachine(rules=rules, debug=True)
+        self.parser = sm.statemachine(rules)
+        # self.parser = sm.statemachine(rules, debug=True)
 
 
     ###  Helpers  ###
