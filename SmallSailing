@@ -95,9 +95,9 @@ class TabooInputError(ValueError):
 
         return (check, cls)
 
-world = sm.statemachine("start", rules, checkpoints=(TabooInputError.checkpoint(), ...))
-# world = sm.statemachine("start", rules, checkpoints=(TabooInputError.checkpoint(), ...), history=20)  # Keep a deeper trace, -1 for unlimited
-# world = sm.statemachine("start", rules, checkpoints=(TabooInputError.checkpoint(), ...), debug="***")  # Add debugging tracer with custom prefix, can be combined with history depth
+world = sm.statemachine(rules, "start", checkpoints=(TabooInputError.checkpoint(), ...))
+# world = sm.statemachine(rules, "start", checkpoints=(TabooInputError.checkpoint(), ...), history=20)  # Keep a deeper trace, -1 for unlimited
+# world = sm.statemachine(rules, "start", checkpoints=(TabooInputError.checkpoint(), ...), debug="***")  # Add debugging tracer with custom prefix, can be combined with history depth
 #####
 
 
