@@ -5,7 +5,7 @@ from enum import Enum
 import re
 
 
-def statemachine(rules=None, state=None, debug=False, history=..., checkpoints=...):
+def statemachine(rules=None, state=..., debug=False, history=..., checkpoints=...):
     """Create a batteries-included state machine with convenience options.
 
     Returns a StateMachine pre-configured to reject unknown input and states; this is the most common way to set up a machine.  Optionally it can also have a verbose debugging tracer with configurable prefix added.
@@ -29,7 +29,7 @@ def statemachine(rules=None, state=None, debug=False, history=..., checkpoints=.
 
 ###  Test Helpers  ###
 class match_test(object):
-    """Callable to match input with a regex and format a nice __str__."""
+    """Thin wrapper around re.match to format a nice __str__."""
     def __init__(self, test_re_str):
         self.test_re = re.compile(test_re_str)
 
@@ -41,7 +41,7 @@ class match_test(object):
 
 
 class search_test(object):
-    """Callable to search input with a regex and format a nice __str__."""
+    """Thin wrapper around re.search to format a nice __str__."""
     def __init__(self, test_re_str):
         self.test_re = re.compile(test_re_str)
 
@@ -66,20 +66,26 @@ class in_test(object):
 
 
 ###  Action Helpers  ###
-class action_formatter:
-    """Decorator to wrap an action callable and give it a nice __str__."""
+class pretty_action:
+    """Decorator to wrap an action callable and give it a nice __str__; not needed if an action already prints nicely"""
     def __init__(self, action):
         self.action = action
+
     def __call__(self, *args, **kwds):
+        # FIXME: this doesn't properly wrap the way functools.wraps does
         return self.action(*args, **kwds)
-    def __repr__(self):
+
+    def __str__(self):
         return f"{self.action.__name__}(**ctx)"
 #####
 
 
 ###  State Machine Core  ###
 class Tracepoint(Enum):
-    # The formatter keys are all distinct so they can be aggregated with dict.update; StateMachine itself does this, or see CheckpointTracer for a more complex example
+    """Defines the tracepoints of the StateMachine core.
+
+    Tracepoints are used to signal a machine's tracer at critical points in the input processing to follow its internal operation.  The formatter keys are all distinct so they can be aggregated with dict.update to build up context as evaluation progresses; StateMachine itself does this, or see CheckpointTracer for an advanced example.
+    """
     INPUT = "{input_count}: {state}('{input}')"
     NO_RULES = "\t(No rules: {state})"  # Consider raising NoRulesError
     RULE = "  {label}: {test} -- {action} --> {dest}"
@@ -91,26 +97,26 @@ class Tracepoint(Enum):
 
 
 class StateMachine(object):
-    """State machine engine that makes minimal assumptions but includes some nice conveniences and powerful extensibitility.
-
-    Public attributes can be manipulated after init; it is common to create the machine and set the rules after the ruleset has been defined, but more dynamic things are possible, for example a rule action could set the state machine's tracer to start or stop logging of the machine's operation.
+    """A state machine engine that makes minimal assumptions but includes some nice conveniences and powerful extensibitility.
     """
 
-    def __init__(self, rules=None, state=None, tracer=None):
-        """Create a state machine optionally with a starting state rules, and tracer; state and rules should be set before the machine is used.
+    def __init__(self, rules=None, state=..., tracer=None):
+        """Create a state machine instance which can be called with input and returns output from evaluating the rules for the current state.
 
         The rules dictionary maps each state to a list of rule tuples, each of which includes a label, a test, an action, and a destination; more about rule elements in the __call__ documentation.
 
-        Rules associated with the special '...' state are implicitly added to all states' rules, to be evaluated after explicit rules.
+        Rules associated with the special ... (Elipsis) state are implicitly added to all states' rules, and evaluated after explicit rules.
 
-        State is simply the starting state for the machine; defaults to None which is not a special value, it is simply a valid state and a convenient convention for the starting state.
+        State is simply the starting state for the machine; it defaults to the first state defined in the rules or None which is not a special value, it is simply a (possibly) valid state.
 
-        Tracer is an optional callable that takes a tracepoint string and its associated values, and is called at critical points in the input processing to follow the internal operation of the machine.  A simple tracer can produce logs that are extremely helpful when debugging, see PrefixTracer for an example.  Tracepoints are distinct constants which can be used by more advanced tracers for selective verbosity, raising errors for unrecognized input or states, and other things.  Tracer values can be collected for later use; see ContextTracer.  Tracers can be stacked using MultiTracer.
+        Tracer is an optional callable that takes a Tracepoint and its associated values; it is called at critical points in the input processing to follow the internal operation of the machine.  A simple tracer can produce logs that are extremely helpful when debugging, see PrefixTracer for an example.  Tracepoints are distinct constants which can be used by more advanced tracers for selective verbosity, raising errors for unrecognized input or states, and other things.  Tracers can be stacked using MultiTracer.
         """
-        # Starting state and rules can be set after init, but really should be set before using the machine
-        self.state = state
+        # Starting rules and state can be set after init, but really should be set before using the machine
         # rules dict looks like { state: [(label, test, action, new_state), ...], ...}
         self.rules = rules if rules is not None else {}
+        if state is ...:
+            state = next(iter(self.rules), None)
+        self.state = state
         self.tracer = tracer
         self.context = {}
         self._input_count = 0
@@ -122,8 +128,8 @@ class StateMachine(object):
         if self.tracer:
             self.tracer(tp, **vals)
 
-    def __call__(self, i):
-        """Tests an input against the explicit rules for the current state plus the implicit rules from the '...' state.
+    def __call__(self, input):
+        """Tests an input against the explicit rules for the current state plus the implicit rules from the ... (Elipsis) state.
 
         As the rules are evaluated, a context dictionary is built; these keys and values are available to callable rule components as keyword arguments.  Context arguments avalable when rules are evaluated are: input, input_count, state, and elements of the currently evaluating rule: label, test, action, and dest.
 
@@ -139,13 +145,13 @@ class StateMachine(object):
         """
         self.context = {}
         self._input_count += 1
-        self._trace(Tracepoint.INPUT, input_count=self._input_count, state=self.state, input=i)
+        self._trace(Tracepoint.INPUT, input_count=self._input_count, state=self.state, input=input)
         rule_list = self.rules.get(self.state, []) + self.rules.get(..., [])
         if not rule_list:
             self._trace(Tracepoint.NO_RULES, state=self.state)
         for l,t,a,d in rule_list:
             self._trace(Tracepoint.RULE, label=l, test=t, action=a, dest=d)
-            result = t(**self.context) if callable(t) else t == i
+            result = t(**self.context) if callable(t) else t == input
             if result:
                 self._trace(Tracepoint.RESULT, label=l, result=result)
                 response = a(**self.context) if callable(a) else a
@@ -158,7 +164,7 @@ class StateMachine(object):
                     self.state = dest
                 return response
         else:
-            self._trace(Tracepoint.UNRECOGNIZED, input=i)
+            self._trace(Tracepoint.UNRECOGNIZED, input=input)
             return None
 #####
 
@@ -218,7 +224,12 @@ class MultiTracer:
 
 
 class CheckpointTracer(object):
-    """Tracer that can check a wide variety of conditions and raise an error if one is met."""
+    """Tracer that can check a wide variety of conditions and raise an error if one is met.
+
+    By default, it checks for and raises NoRulesError, UnrecognizedInputError, and UnknownStateError, but can be customized with additional checkpoints.  It also keeps a history of transitions and can (and does by default) compact loops in the trace history by tracking the number of transitions within a state, but retaining only the most recent.
+
+    When it raises an error, it will include a traceback of the recent transitions, similar to a standard stack trace; this is extremely helpful for debugging.
+    """
 
     DEFAULT_CHECKPOINTS = (
         NoRulesError.checkpoint(), 
@@ -229,11 +240,11 @@ class CheckpointTracer(object):
     def __init__(self, checkpoints=(...,), history=10, compact=True):
         """Create a CheckpointTracer with customizable checkpoints, history depth, and compaction.
 
-        Checkpoints is a list of tuples, each with a callable check function and an exception class to raise if the check function returns a message.  If ... is in checkpoints, the default checks will be inserted at that point in the list.  Defaults to check for the most common issues: NoRulesError, UnrecognizedInputError, and UnknownStateError.
+        Checkpoints is a list of tuples, each with a callable check function and an exception class to raise if the check function returns a message.  If ... (Elipsis) is in checkpoints, the default checks will be inserted at that point in the list.  Defaults to check for the most common issues: NoRulesError, UnrecognizedInputError, and UnknownStateError.
 
         History is the number of previous transitions to keep in memory for context; if history is None or negative, the history will be unlimited.  Defaults to 10.
 
-        Compact determines whether the tracer will compact loops in the trace history; if compact is True (default), the tracer will keep only the most recent transition in any state, and the number of loops will be noted in the traceback.
+        Compact determines whether the tracer will compact loops in the trace history; if compact is True (default), the tracer will track transitions that remain in the same state, but retain only the most recent and the number of loops will be noted in the traceback.
         """
         if not checkpoints:
             checkpoints = []
