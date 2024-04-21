@@ -236,7 +236,7 @@ class CheckpointTracer(object):
         Compact determines whether the tracer will compact loops in the trace history; if compact is True (default), the tracer will keep only the most recent transition in any state, and the number of loops will be noted in the traceback.
         """
         if not checkpoints:
-            self.checkpoints = []
+            checkpoints = []
         elif ... in checkpoints:
             # Replace ... in checkpoints with the default checkpoints
             checkpoints = list(checkpoints)
@@ -244,7 +244,7 @@ class CheckpointTracer(object):
             checkpoints[i:i+1] = self.DEFAULT_CHECKPOINTS
         self.checkpoints = list(checkpoints)  # List so it can be manipulated later if desired
 
-        self.context = {}  # Simpler to keep our own context than to try to get a reference to the machine
+        self.context = {}  # Simpler to keep our own context than get a reference to the machine
         self.input_count = 0
         if history is None or history < 0:
             history = None  # Unlimited depth
@@ -299,19 +299,18 @@ class CheckpointTracer(object):
         return [ self.format_transition(t) for t in transitions ]
 
     def format_transition(self, t):
-        tp = t.get("tracepoint", "Tracepoint missing")
-        if tp == Tracepoint.NEW_STATE:
-            # Most transitions will be "complete"
-            looped = "    ({loop_count} loops in '{state}' elided)\n".format_map(t) if "loop_count" in t else ""
-            return looped + "{input_count}: {state}('{input}') > {label}: {result} -- {response} --> {new_state}".format(**t)
-        if tp == Tracepoint.NO_RULES:
-            # No rules has its own format
-            return "{input_count}: {state} >> No rules".format(**t)
-        if tp == Tracepoint.UNRECOGNIZED:
-            # Unrecognized has its own format
-            return "{input_count}: {state}('{input}') >> Unrecognized".format(**t)
-        if tp == Tracepoint.UNKNOWN_STATE:
-            # Unknown state has its own format
-            return "{input_count}: {state}('{input}') >> Unknown state: {new_state}".format(**t)
-        return f"PARTIAL: {str(t)}"  # If transition somehow does not have a known formatting, simply dump it for debugging  FIXME: do better
+        format_parts = [
+            ("loop_count", "    ({loop_count} loops in '{state}' elided)\n"),
+            ("input", "{input_count}: {state}('{input}')"),
+            ("label", " > {label}"),
+            ("result", ": {result}"),
+            ("response", " -- {response}"),
+            ("new_state", " --> {new_state}"),
+        ]
+        fmt = "".join( f for k,f in format_parts if k in t )
+        line = fmt.format(**t)
+        tp = t.get("tracepoint")
+        if tp != Tracepoint.NEW_STATE:
+            line += f" >> ({tp.name})"
+        return line
 #####
