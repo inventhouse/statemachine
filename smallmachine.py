@@ -5,7 +5,7 @@ from enum import Enum
 import re
 
 
-def statemachine(state=None, rules=None, history=..., debug=False, lenient=()):
+def statemachine(state=None, rules=None, debug=False, history=..., checkpoints=...):
     """Create a batteries-included state machine with convenience options.
 
     Returns a StateMachine pre-configured to reject unknown input and states; this is the most common way to set up a machine.  Optionally it can also have a verbose debugging tracer with configurable prefix added.
@@ -17,19 +17,11 @@ def statemachine(state=None, rules=None, history=..., debug=False, lenient=()):
         dbg = PrefixTracer(**dbg_args)
         tracers.append(dbg)
 
-    checkpoints = []
-    if lenient is not True:
-        if NoRulesError not in lenient:
-            checkpoints.append(NoRulesError.checkpoint())
-        if UnrecognizedInputError not in lenient:
-            checkpoints.append(UnrecognizedInputError.checkpoint())
-        if UnknownStateError not in lenient:
-            checkpoints.append(UnknownStateError.checkpoint())
+    checkpoints_args = {"checkpoints": checkpoints} if checkpoints is not ... else {}
     history_args = {"history": history} if history is not ... else {}
-    tracers.append(CheckpointTracer(*checkpoints, **history_args))
+    tracers.append(CheckpointTracer(**checkpoints_args, **history_args))
     tracer = MultiTracer(*tracers) if len(tracers) > 1 else tracers[0]
-    fsm = StateMachine(state, rules, tracer=tracer)
-    return fsm #, ctx
+    return StateMachine(state, rules, tracer=tracer)
 
 
 class Tracepoint(Enum):
@@ -173,8 +165,23 @@ class MultiTracer:
 
 class CheckpointTracer(object):
     """Raises an error with a traceback of recent machine transitions when a checkpoint check returns a message."""
-    def __init__(self, *checkpoints, history=10, compact=True):
+
+    DEFAULT_CHECKPOINTS = (
+        NoRulesError.checkpoint(), 
+        UnrecognizedInputError.checkpoint(), 
+        UnknownStateError.checkpoint(),
+    )
+
+    def __init__(self, checkpoints=(...,), history=10, compact=True):
+        if not checkpoints:
+            self.checkpoints = []
+        elif ... in checkpoints:
+            # Replace ... in checkpoints with the default checkpoints
+            checkpoints = list(checkpoints)
+            i = checkpoints.index(...)
+            checkpoints[i:i+1] = self.DEFAULT_CHECKPOINTS
         self.checkpoints = list(checkpoints)  # List so it can be manipulated later if desired
+
         self.context = {}  # Simpler to keep our own context than to try to get a reference to the machine
         self.input_count = 0
         if history is None or history < 0:

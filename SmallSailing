@@ -84,12 +84,20 @@ rules = {
     ]
 }
 
-world = sm.statemachine("start", rules, debug=True)
-# world = sm.statemachine("start", rules, history=20)  # Keep a deeper trace, -1 for unlimited
-# world = sm.statemachine("start", rules, debug="***")  # Add debugging tracer with custom prefix, can be combined with history depth
-# ctx = sm.ContextTracer()
-# unrecognized = sm.UnrecognizedInputError.tracer()
-# world = sm.StateMachine("start", rules, sm.MultiTracer(unrecognized, ctx))
+# Custom checkpoint
+class TabooInputError(ValueError):
+    """Raised if input is ever 'taboo'."""
+    @classmethod
+    def checkpoint(cls):
+        def check(input, **ctx):
+            if input.strip().lower() == "taboo":
+                return "{input_count}: '{input}' is forbidden".format(input=input, **ctx)
+
+        return (check, cls)
+
+world = sm.statemachine("start", rules, checkpoints=(TabooInputError.checkpoint(), ...))
+# world = sm.statemachine("start", rules, checkpoints=(TabooInputError.checkpoint(), ...), history=20)  # Keep a deeper trace, -1 for unlimited
+# world = sm.statemachine("start", rules, checkpoints=(TabooInputError.checkpoint(), ...), debug="***")  # Add debugging tracer with custom prefix, can be combined with history depth
 #####
 
 
