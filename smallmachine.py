@@ -65,6 +65,18 @@ class in_test(object):
 #####
 
 
+###  Action Helpers  ###
+class action_formatter:
+    """Decorator to wrap an action callable and give it a nice __str__."""
+    def __init__(self, action):
+        self.action = action
+    def __call__(self, *args, **kwds):
+        return self.action(*args, **kwds)
+    def __repr__(self):
+        return f"{self.action.__name__}(**ctx)"
+#####
+
+
 ###  State Machine Core  ###
 class Tracepoint(Enum):
     # The formatter keys are all distinct so they can be aggregated with dict.update; StateMachine itself does this, or see CheckpointTracer for a more complex example

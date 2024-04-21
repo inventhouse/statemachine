@@ -3,7 +3,6 @@
 
 from collections import Counter, deque
 from dataclasses import dataclass, field
-from typing import Any
 
 import smallmachine as sm
 
@@ -40,15 +39,6 @@ chat_lines = """
     Removed a 👏🏼 reaction from "Anyone still remember ..."
 """
 
-class action_formatter:
-    def __init__(self, action):
-        self.action = action
-    def __call__(self, *args: Any, **kwds: Any) -> Any:
-        return self.action(*args, **kwds)
-    def __repr__(self) -> str:
-        return f"{self.action.__name__}(i)"
-
-
 class ChatParser:
     def __init__(self) -> None:
         # Store messages LIFO to make finding previous message easy for replies and reactions
@@ -56,7 +46,7 @@ class ChatParser:
         self.current_message = None
 
         header_test = sm.match_test(r"(?P<time_str>(?P<hour>\d{2}):(?P<minute>\d{2}):(?P<second>\d{2})) From (?P<from>.+?) to (?P<to>.+?):")
-        @action_formatter
+        @sm.action_formatter
         def begin_message(result, **_):
             # Push any previous message onto the stack and start a new one
             if self.current_message:
@@ -68,7 +58,7 @@ class ChatParser:
             )
 
         reaction_test = sm.match_test(r'\s+Reacted to "(?P<prefix>.+?)([.]{3})?" with (?P<reaction>.+)')
-        @action_formatter
+        @sm.action_formatter
         def add_reaction(result, **_):
             # result = self.parser.context["result"]
             prefix = result.group("prefix")
@@ -79,7 +69,7 @@ class ChatParser:
             self.current_message = None  # Reactions don't contain actual messages
 
         remove_reaction_test = sm.match_test(r'\s+Removed a (?P<reaction>.+?) reaction from "(?P<prefix>.+?)([.]{3})?"')
-        @action_formatter
+        @sm.action_formatter
         def remove_reaction(result, **_):
             # result = self.parser.context["result"]
             prefix = result.group("prefix")
@@ -92,7 +82,7 @@ class ChatParser:
 
         reply_test = sm.match_test(r'\s+Replying to "(?P<prefix>.+?)([.]{3})?"')
         blank_test = sm.match_test(r"\s*$")
-        @action_formatter
+        @sm.action_formatter
         def add_reply(result, **_):
             # result = self.parser.context["result"]
             prefix = result.group("prefix")
@@ -103,7 +93,7 @@ class ChatParser:
                 primary_message.replies.append(self.current_message)
 
         message_line_test = sm.match_test(r"\s+(?P<line>.*)")
-        @action_formatter
+        @sm.action_formatter
         def add_message_line(result, **_):
             # result = self.parser.context["result"]
             l = result.group("line")
@@ -132,8 +122,8 @@ class ChatParser:
             ],
             "no_rules": [],  # Test state for no rules error
         }
-        self.parser = sm.statemachine(rules=rules)
-        # self.parser = sm.statemachine(rules=rules, debug=True)
+        # self.parser = sm.statemachine(rules=rules)
+        self.parser = sm.statemachine(rules=rules, debug=True)
 
 
     ###  Helpers  ###
