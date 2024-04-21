@@ -299,18 +299,19 @@ class CheckpointTracer(object):
         return [ self.format_transition(t) for t in transitions ]
 
     def format_transition(self, t):
-        format_parts = [
+        format_parts = (
             ("loop_count", "    ({loop_count} loops in '{state}' elided)\n"),
             ("input", "{input_count}: {state}('{input}')"),
             ("label", " > {label}"),
             ("result", ": {result}"),
             ("response", " -- {response}"),
             ("new_state", " --> {new_state}"),
-        ]
+        )
         fmt = "".join( f for k,f in format_parts if k in t )
         line = fmt.format(**t)
         tp = t.get("tracepoint")
         if tp != Tracepoint.NEW_STATE:
+            # Most transitions will finish at NEW_STATE, only annotate ones that don't
             line += f" >> ({tp.name})"
         return line
 #####
