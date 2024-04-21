@@ -10,7 +10,7 @@ def statemachine(state=None, rules=None, debug=False, history=..., checkpoints=.
 
     Returns a StateMachine pre-configured to reject unknown input and states; this is the most common way to set up a machine.  Optionally it can also have a verbose debugging tracer with configurable prefix added.
 
-    History and checkpoints will be passed on to the CheckpointTracer, see that for details.
+    History and checkpoints arguments will be passed on to the CheckpointTracer, see that for details.
     """
 
     tracers = []
@@ -24,10 +24,50 @@ def statemachine(state=None, rules=None, debug=False, history=..., checkpoints=.
     tracers.append(CheckpointTracer(**checkpoints_args, **history_args))
     tracer = MultiTracer(*tracers) if len(tracers) > 1 else tracers[0]
     return StateMachine(state, rules, tracer=tracer)
+#####
 
 
+###  Test Helpers  ###
+class match_test(object):
+    """Callable to match input with a regex and format a nice __str__."""
+    def __init__(self, test_re_str):
+        self.test_re = re.compile(test_re_str)
+
+    def __call__(self, input, **_):
+        return self.test_re.match(input)
+
+    def __str__(self):
+        return f"'{self.test_re.pattern}'.match(input)"
+
+
+class search_test(object):
+    """Callable to search input with a regex and format a nice __str__."""
+    def __init__(self, test_re_str):
+        self.test_re = re.compile(test_re_str)
+
+    def __call__(self, input, **_):
+        return self.test_re.search(input)
+
+    def __str__(self):
+        return f"'{self.test_re.pattern}'.search(input)"
+
+
+class in_test(object):
+    """Callable to test if input is in a collection and format a nice __str__."""
+    def __init__(self, in_list):
+        self.in_list = in_list
+
+    def __call__(self, input, **_):
+        return input in self.in_list
+
+    def __str__(self):
+        return f"input in {self.in_list}"
+#####
+
+
+###  State Machine Core  ###
 class Tracepoint(Enum):
-    # The formatter keys are all distinct so they can be aggregated with dict.update; see ContextTracer for an example implementation
+    # The formatter keys are all distinct so they can be aggregated with dict.update; StateMachine itself does this, or see CheckpointTracer for a more complex example
     INPUT = "{input_count}: {state}('{input}')"
     NO_RULES = "\t(No rules: {state})"  # Consider raising NoRulesError
     RULE = "  {label}: {test} -- {action} --> {dest}"
@@ -39,7 +79,7 @@ class Tracepoint(Enum):
 
 
 class StateMachine(object):
-    """State machine engine that makes minimal assumptions but includes some nice conveniences.
+    """State machine engine that makes minimal assumptions but includes some nice conveniences and powerful extensibitility.
 
     Public attributes can be manipulated after init; it is common to create the machine and set the rules after the ruleset has been defined, but more dynamic things are possible, for example a rule action could set the state machine's tracer to start or stop logging of the machine's operation.
     """
@@ -262,42 +302,4 @@ class CheckpointTracer(object):
             # Unknown state has its own format
             return "{input_count}: {state}('{input}') >> Unknown state: {new_state}".format(**t)
         return f"PARTIAL: {str(t)}"  # If transition somehow does not have a known formatting, simply dump it for debugging  FIXME: do better
-#####
-
-
-###  Test Helpers  ###
-class match_test(object):
-    """Callable to match input with a regex and format a nice __str__."""
-    def __init__(self, test_re_str):
-        self.test_re = re.compile(test_re_str)
-
-    def __call__(self, input, **_):
-        return self.test_re.match(input)
-
-    def __str__(self):
-        return f"'{self.test_re.pattern}'.match(input)"
-
-
-class search_test(object):
-    """Callable to search input with a regex and format a nice __str__."""
-    def __init__(self, test_re_str):
-        self.test_re = re.compile(test_re_str)
-
-    def __call__(self, input, **_):
-        return self.test_re.search(input)
-
-    def __str__(self):
-        return f"'{self.test_re.pattern}'.search(input)"
-
-
-class in_test(object):
-    """Callable to test if input is in a collection and format a nice __str__."""
-    def __init__(self, in_list):
-        self.in_list = in_list
-
-    def __call__(self, input, **_):
-        return input in self.in_list
-
-    def __str__(self):
-        return f"input in {self.in_list}"
 #####
