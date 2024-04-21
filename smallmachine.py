@@ -9,6 +9,8 @@ def statemachine(state=None, rules=None, debug=False, history=..., checkpoints=.
     """Create a batteries-included state machine with convenience options.
 
     Returns a StateMachine pre-configured to reject unknown input and states; this is the most common way to set up a machine.  Optionally it can also have a verbose debugging tracer with configurable prefix added.
+
+    History and checkpoints will be passed on to the CheckpointTracer, see that for details.
     """
 
     tracers = []
@@ -164,7 +166,7 @@ class MultiTracer:
 
 
 class CheckpointTracer(object):
-    """Raises an error with a traceback of recent machine transitions when a checkpoint check returns a message."""
+    """Tracer that can check a wide variety of conditions and raise an error if one is met."""
 
     DEFAULT_CHECKPOINTS = (
         NoRulesError.checkpoint(), 
@@ -173,6 +175,14 @@ class CheckpointTracer(object):
     )
 
     def __init__(self, checkpoints=(...,), history=10, compact=True):
+        """Create a CheckpointTracer with customizable checkpoints, history depth, and compaction.
+
+        Checkpoints is a list of tuples, each with a callable check function and an exception class to raise if the check function returns a message.  If ... is in checkpoints, the default checks will be inserted at that point in the list.  Defaults to check for the most common issues: NoRulesError, UnrecognizedInputError, and UnknownStateError.
+
+        History is the number of previous transitions to keep in memory for context; if history is None or negative, the history will be unlimited.  Defaults to 10.
+
+        Compact determines whether the tracer will compact loops in the trace history; if compact is True (default), the tracer will keep only the most recent transition in any state, and the number of loops will be noted in the traceback.
+        """
         if not checkpoints:
             self.checkpoints = []
         elif ... in checkpoints:
@@ -208,9 +218,9 @@ class CheckpointTracer(object):
                 raise err(f"StateMachine Traceback (most recent last):\n{trace_lines}\n{err.__name__}: {msg}")
 
         if self.compact and tracepoint == Tracepoint.NEW_STATE:
-            self.fold_loop()
+            self._fold_loop()
 
-    def fold_loop(self):
+    def _fold_loop(self):
         if not self.history:
             return
 
