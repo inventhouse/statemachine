@@ -54,8 +54,6 @@ class ChatParser:
         # Store messages LIFO to make finding previous message easy for replies and reactions
         self.message_stack = deque()
         self.current_message = None
-        self.parser = sm.statemachine()
-        # self.parser = sm.statemachine(debug=True)
 
         header_test = sm.match_test(r"(?P<time_str>(?P<hour>\d{2}):(?P<minute>\d{2}):(?P<second>\d{2})) From (?P<from>.+?) to (?P<to>.+?):")
         @action_formatter
@@ -111,7 +109,7 @@ class ChatParser:
             l = result.group("line")
             self.current_message.message_lines.append(l)
 
-        self.parser.rules = {
+        rules = {
             None: [
                 ("header", header_test, begin_message, "message"),
                 ("blank", blank_test, None, ...),
@@ -134,6 +132,8 @@ class ChatParser:
             ],
             "no_rules": [],  # Test state for no rules error
         }
+        self.parser = sm.statemachine(rules=rules)
+        # self.parser = sm.statemachine(rules=rules, debug=True)
 
 
     ###  Helpers  ###
