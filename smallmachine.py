@@ -5,7 +5,7 @@ from enum import Enum
 import re
 
 
-___ = object()  # Sentinel for arguments that should not be passed on
+___ = object()  # Sentinel for default arguments not to be passed on
 def statemachine(rules=___, state=___, debug=False, history=___, checkpoints=___):
     """Create a batteries-included state machine with convenience options.
 
@@ -20,12 +20,12 @@ def statemachine(rules=___, state=___, debug=False, history=___, checkpoints=___
         dbg = PrefixTracer(**dbg_args)
         tracers.append(dbg)
 
-    checkpoints_args = {"checkpoints": checkpoints} if checkpoints is not ___ else {}
-    history_args = {"history": history} if history is not ___ else {}
+    checkpoints_args = {} if checkpoints is ___ else {"checkpoints": checkpoints}
+    history_args = {} if history is ___ else {"history": history}
     tracers.append(CheckpointTracer(**checkpoints_args, **history_args))
     tracer = MultiTracer(*tracers) if len(tracers) > 1 else tracers[0]
-    state_args = {"state": state} if state is not ___ else {}
-    rules_args = {"rules": rules} if rules is not ___ else {}
+    state_args = {} if state is ___ else {"state": state}
+    rules_args = {} if rules is ___ else {"rules": rules} 
     return StateMachine(**rules_args, **state_args, tracer=tracer)
 #####
 
