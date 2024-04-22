@@ -6,7 +6,7 @@ import re
 
 
 __ = object()  # Sentinel for default arguments not to be passed on
-def statemachine(rules=__, state=__, debug=False, history=__, checkpoints=__):
+def statemachine(rules=__, state=__, debug=False, history=__, checkpoints=__, tracer=None):
     """Create a batteries-included state machine with convenience options.
 
     Returns a StateMachine pre-configured to reject unknown input and states; this is the most common way to set up a machine.  Optionally it can also have a verbose debugging tracer with configurable prefix added.
@@ -14,7 +14,7 @@ def statemachine(rules=__, state=__, debug=False, history=__, checkpoints=__):
     History and checkpoints arguments will be passed on to the CheckpointTracer, see that for details.
     """
 
-    tracers = []
+    tracers = [tracer] if tracer else []
     if debug is not False:
         dbg_args = {"prefix": debug} if debug is not True else {}
         dbg = PrefixTracer(**dbg_args)
