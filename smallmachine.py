@@ -100,7 +100,7 @@ class Tracepoint(Enum):
 
 
 class StateMachine(object):
-    """A state machine engine that makes minimal assumptions but includes some nice conveniences and powerful extensibitility.
+    """A state machine engine that makes minimal assumptions but includes some nice conveniences and powerful extensibility.
     """
 
     def __init__(self, rules=None, state=..., tracer=None):
@@ -108,7 +108,7 @@ class StateMachine(object):
 
         The rules dictionary maps each state to a list of rule tuples, each of which includes a label, a test, an action, and a destination; more about rule elements in the __call__ documentation.
 
-        Rules associated with the special ... (Elipsis) state are implicitly added to all states' rules, and evaluated after explicit rules.
+        Rules associated with the special ... (Ellipsis) state are implicitly added to all states' rules, and evaluated after explicit rules.
 
         State is simply the starting state for the machine; it defaults to the first state defined in the rules or None which is not a special value, it is simply a (possibly) valid state.
 
@@ -132,9 +132,9 @@ class StateMachine(object):
             self.tracer(tp, **vals)
 
     def __call__(self, input):
-        """Tests an input against the explicit rules for the current state plus the implicit rules from the ... (Elipsis) state.
+        """Tests an input against the explicit rules for the current state plus the implicit rules from the ... (Ellipsis) state.
 
-        As the rules are evaluated, a context dictionary is built; these keys and values are available to callable rule components as keyword arguments.  Context arguments avalable when rules are evaluated are: input, input_count, state, and elements of the currently evaluating rule: label, test, action, and dest.
+        As the rules are evaluated, a context dictionary is built; these keys and values are available to callable rule components as keyword arguments.  Context arguments available when rules are evaluated are: input, input_count, state, and elements of the currently evaluating rule: label, test, action, and dest.
 
         Each rule consists of a label, test, action, and destination, which work as follows:
 
@@ -243,7 +243,7 @@ class CheckpointTracer(object):
     def __init__(self, checkpoints=(...,), history=10, compact=True):
         """Create a CheckpointTracer with customizable checkpoints, history depth, and compaction.
 
-        Checkpoints is a list of tuples, each with a callable check function and an exception class to raise if the check function returns a message.  If ... (Elipsis) is in checkpoints, the default checks will be inserted at that point in the list.  Defaults to check for the most common issues: NoRulesError, UnrecognizedInputError, and UnknownStateError.
+        Checkpoints is a list of tuples, each with a callable check function and an exception class to raise if the check function returns a message.  If ... (Ellipsis) is in checkpoints, the default checks will be inserted at that point in the list.  Defaults to check for the most common issues: NoRulesError, UnrecognizedInputError, and UnknownStateError.
 
         History is the number of previous transitions to keep in memory for context; if history is None or negative, the history will be unlimited.  Defaults to 10.
 
