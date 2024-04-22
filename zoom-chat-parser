@@ -109,7 +109,6 @@ class ChatParser:
             self.current_message.message_lines.append(l)
 
         rules = {
-            "Nonsense": [],
             None: [
                 ("header", header_test, begin_message, "message"),
                 ("blank", blank_test, None, ...),

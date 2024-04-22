@@ -5,8 +5,8 @@ from enum import Enum
 import re
 
 
-_DEFAULT = object()  # Sentinel value for arguments that should not be passed on
-def statemachine(rules=_DEFAULT, state=_DEFAULT, debug=False, history=_DEFAULT, checkpoints=_DEFAULT):
+___ = object()  # Sentinel for arguments that should not be passed on
+def statemachine(rules=___, state=___, debug=False, history=___, checkpoints=___):
     """Create a batteries-included state machine with convenience options.
 
     Returns a StateMachine pre-configured to reject unknown input and states; this is the most common way to set up a machine.  Optionally it can also have a verbose debugging tracer with configurable prefix added.
@@ -20,12 +20,12 @@ def statemachine(rules=_DEFAULT, state=_DEFAULT, debug=False, history=_DEFAULT, 
         dbg = PrefixTracer(**dbg_args)
         tracers.append(dbg)
 
-    checkpoints_args = {"checkpoints": checkpoints} if checkpoints is not _DEFAULT else {}
-    history_args = {"history": history} if history is not _DEFAULT else {}
+    checkpoints_args = {"checkpoints": checkpoints} if checkpoints is not ___ else {}
+    history_args = {"history": history} if history is not ___ else {}
     tracers.append(CheckpointTracer(**checkpoints_args, **history_args))
     tracer = MultiTracer(*tracers) if len(tracers) > 1 else tracers[0]
-    state_args = {"state": state} if state is not _DEFAULT else {}
-    rules_args = {"rules": rules} if rules is not _DEFAULT else {}
+    state_args = {"state": state} if state is not ___ else {}
+    rules_args = {"rules": rules} if rules is not ___ else {}
     return StateMachine(**rules_args, **state_args, tracer=tracer)
 #####
 
