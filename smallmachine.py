@@ -12,6 +12,8 @@ def statemachine(rules=__, state=__, debug=False, history=__, checkpoints=__, tr
     Returns a StateMachine pre-configured to reject unknown input and states; this is the most common way to set up a machine.  Optionally it can also have a verbose debugging tracer with configurable prefix added.
 
     History and checkpoints arguments will be passed on to the CheckpointTracer, see that for details.
+
+    An additional tracer can also be passed in and it will be called before any default tracers.
     """
 
     tracers = [tracer] if tracer else []
