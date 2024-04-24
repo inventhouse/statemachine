@@ -25,18 +25,11 @@ class Location:
         self.name = name
         self.description = description
 
-    # Demonstrate a simple enter/exit action pattern
-    def enter(self, state, **ctx):
+    # Demonstrate a simple enter-action pattern
+    def enter(self, **_):
         """Enter action: describe the location"""
-        if callable(state):
-            # call exit action if needed
-            state(state=state, **ctx)
         print(adlib(self.description))
         return self
-
-    # def __call__(self, **ctx):
-    #     """Exit action: not implemented"""
-    #     pass
 
     def __str__(self):
         return self.name
