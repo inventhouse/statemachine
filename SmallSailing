@@ -5,7 +5,6 @@
 Tiny, seemingly pointless, interactive fiction game to play with `smallmachine`
 """
 import random
-# import re
 import time
 
 import smallmachine as sm
@@ -20,13 +19,42 @@ def adlib(x, joiner=" "):
     if type(x) is list:
         return adlib(random.choice(x))
     return str(x)
+
+class Location:
+    def __init__(self, name, description):
+        self.name = name
+        self.description = description
+
+    # Demonstrate a simple enter/exit action pattern
+    def enter(self, state, **ctx):
+        """Enter action: describe the location"""
+        if callable(state):
+            # call exit action if needed
+            state(state=state, **ctx)
+        print(adlib(self.description))
+        return self
+
+    # def __call__(self, **ctx):
+    #     """Exit action: not implemented"""
+    #     pass
+
+    def __str__(self):
+        return self.name
 #####
 
 
 ###  Fixtures  ###
+above = Location(
+    "above", 
+    ("You are on the deck of a small sailboat on a", ["calm", "serene", "blue", "clear", "glistening",], "sea; an open hatch leads down.")
+)
+
+below = Location(
+    "below", 
+    ("You are in the", ["cozy", "homey", "snug",], "cabin of a small boat, with just enough room for a bunk and a tiny desk with a logbook; a hatch leads up.")
+)
+
 messages = {
-    "above": ("You are on the deck of a small sailboat on a", ["calm", "serene", "blue", "clear", "glistening",], "sea; an open hatch leads down."),
-    "below": ("You are in the", ["cozy", "homey", "snug",], "cabin of a small boat, with just enough room for a bunk and a tiny desk with a logbook; a hatch leads up."),
     "sail": ("You", ["set", "adjust", "tack",], "your sail", ["to", "toward", "for"], "{}."),
     "sleep": ("The bunk is", ["soft", "comfortable", "warm", "cozy",], "and you", ["rest", "sleep", "snooze", "nap", "doze",], ["well.", "deeply.", "blissfully.", "nicely"]),
     "log": [("Weather was", ["fair.", "good.", "lovely.",]),
@@ -43,12 +71,8 @@ messages = {
 
 
 ###  Actions  ###
-def look_enter(dest):
-    def l(state, **_):
-        s = dest if dest is not ... else state
-        print(adlib(messages[s]))
-        return dest
-    return l
+def look_action(state, **_):
+    return f"{adlib(state.description)}"
 
 def sail_action(**_):
     s = input("Where to? > ")
@@ -62,28 +86,31 @@ def write_action(**_):
 #####
 
 
-###  World  ###
+###  Rules  ###
 rules = {
     "start": [
-        ("start", lambda **_: True, None, look_enter("above")),
+        ("start", lambda **_: True, None, above.enter),
     ],
-    "above": [
-        ("go below", sm.in_test(["d", "down", "below",]), None, look_enter("below")),
+    above: [
+        ("go below", sm.in_test(["d", "down", "below",]), None, below.enter),
         ("sail", sm.in_test(["s", "sail",]), sail_action, ...),
     ],
-    "below": [
-        ("go above", sm.in_test(["u", "up", "above",]), None, look_enter("above")),
+    below: [
+        ("go above", sm.in_test(["u", "up", "above",]), None, above.enter),
         ("read log", sm.in_test(["r", "read", "read logbook",]), lambda **_: adlib([messages["log"], log_entries]), ...),
         ("write log", sm.in_test(["w", "write", "log",]), write_action, ...),
         ("sleep", sm.in_test(["s", "sleep", "bunk", "lie down", "lay down", "nap",]), lambda **_: adlib(messages["sleep"]), ...),
     ],
     ...: [
-        ("look", sm.in_test(["l", "look",]), None, look_enter(...)),
+        ("look", sm.in_test(["l", "look",]), look_action, ...),
         ("warp", sm.in_test(["warp",]), "Warp out of this dimention", "elsewhere"),
         ("anything except crash", lambda input, **_: input != "crash", "Sorry, you can't do that.", ...),
     ]
 }
+#####
 
+
+###  World  ###
 # Custom checkpoint
 class TabooInputError(ValueError):
     """Raised if input is ever 'taboo'."""
