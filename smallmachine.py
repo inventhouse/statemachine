@@ -100,7 +100,9 @@ class Tracepoint(Enum):
     UNRECOGNIZED = "\t(No match: '{input}')"  # Consider raising UnrecognizedInputError
     UNKNOWN_STATE = "\t(Unknown state: {new_state})"  # Consider raising UnknownStateError
 
+
 def format_context(**ctx):
+    """Format the statemachine context for a partial or complete transition of a machine."""
     # REM: this doesn't format the full context, just (some of) the parts that describe a single transition; do we want it to format the full context (or at least more)?
     format_parts = (
         ("input", "{input_count}: {state}('{input}')"),
