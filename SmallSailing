@@ -76,6 +76,9 @@ def write_action(**_):
     s = input("What do you want to say? > ")
     log_entries.append(s)
     return "Written"
+
+def explode_action(**_):
+    raise ValueError("Ka-Boom!")
 #####
 
 
@@ -96,7 +99,8 @@ rules = {
     ],
     ...: [
         ("look", sm.in_test(["l", "look",]), look_action, ...),
-        ("warp", sm.in_test(["warp",]), "Warp out of this dimention", "elsewhere"),
+        ("kaboom", "kaboom", explode_action, ...),
+        ("warp", "warp", "Warp out of this dimention", "elsewhere"),
         ("anything except crash", lambda input, **_: input != "crash", "Sorry, you can't do that.", ...),
     ]
 }

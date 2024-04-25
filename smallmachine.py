@@ -33,6 +33,18 @@ def statemachine(rules=__, state=__, debug=False, history=__, checkpoints=__, tr
 
 
 ###  Test Helpers  ###
+class in_test(object):
+    """Callable to test if input is in a collection and format a nice __str__."""
+    def __init__(self, in_list):
+        self.in_list = in_list
+
+    def __call__(self, input, **_):
+        return input in self.in_list
+
+    def __str__(self):
+        return f"input in {self.in_list}"
+
+
 class match_test(object):
     """Thin wrapper around re.match to format a nice __str__."""
     def __init__(self, test_re_str):
@@ -55,18 +67,6 @@ class search_test(object):
 
     def __str__(self):
         return f"'{self.test_re.pattern}'.search(input)"
-
-
-class in_test(object):
-    """Callable to test if input is in a collection and format a nice __str__."""
-    def __init__(self, in_list):
-        self.in_list = in_list
-
-    def __call__(self, input, **_):
-        return input in self.in_list
-
-    def __str__(self):
-        return f"input in {self.in_list}"
 #####
 
 
@@ -99,6 +99,24 @@ class Tracepoint(Enum):
     NEW_STATE = "    --> {new_state}"
     UNRECOGNIZED = "\t(No match: '{input}')"  # Consider raising UnrecognizedInputError
     UNKNOWN_STATE = "\t(Unknown state: {new_state})"  # Consider raising UnknownStateError
+
+def format_context(**ctx):
+    # REM: this doesn't format the full context, just (some of) the parts that describe a single transition; do we want it to format the full context (or at least more)?
+    format_parts = (
+        ("input", "{input_count}: {state}('{input}')"),
+        ("label", " > {label}"),
+        ("result", ": {result}"),
+        ("response", " -- {response}"),
+        ("new_state", " --> {new_state}"),
+    )
+    fmt = "".join( f for k,f in format_parts if k in ctx )
+    line = fmt.format(**ctx)
+    tp = ctx.get("tracepoint")
+    if tp != Tracepoint.NEW_STATE:
+        # Most transitions will finish at NEW_STATE, only annotate ones that don't
+        name = tp.name if tp else "TRACEPOINT_MISSING"
+        line += f" >> ({name})"
+    return line
 
 
 class StateMachine(object):
@@ -148,29 +166,35 @@ class StateMachine(object):
 
         - Destination: finally, if destination is callable it will be called with context arguments, including 'result' and 'response' above, to get the destination state, otherwise the literal value will be the destination.  If the destination state is '...', the machine will remain in the same state (self-transition or "loop".)  Callable destinations can implement state push/pop for recursion, state exit/enter actions, non-deterministic state changes, and other interesting things.
         """
-        self.context = {}
-        self._input_count += 1
-        self._trace(Tracepoint.INPUT, input_count=self._input_count, state=self.state, input=input)
-        rule_list = self.rules.get(self.state, []) + self.rules.get(..., [])
-        if not rule_list:
-            self._trace(Tracepoint.NO_RULES, state=self.state)
-        for l,t,a,d in rule_list:
-            self._trace(Tracepoint.RULE, label=l, test=t, action=a, dest=d)
-            result = t(**self.context) if callable(t) else t == input
-            if result:
-                self._trace(Tracepoint.RESULT, label=l, result=result)
-                response = a(**self.context) if callable(a) else a
-                self._trace(Tracepoint.RESPONSE, response=response)
-                dest = d(**self.context) if callable(d) else d
-                self._trace(Tracepoint.NEW_STATE, new_state=dest)
-                if dest is not ...:
-                    if dest not in self.rules:
-                        self._trace(Tracepoint.UNKNOWN_STATE, new_state=dest)
-                    self.state = dest
-                return response
-        else:
-            self._trace(Tracepoint.UNRECOGNIZED, input=input)
-            return None
+        try:
+            self.context = {}
+            self._input_count += 1
+            self._trace(Tracepoint.INPUT, input_count=self._input_count, state=self.state, input=input)
+            rule_list = self.rules.get(self.state, []) + self.rules.get(..., [])
+            if not rule_list:
+                self._trace(Tracepoint.NO_RULES, state=self.state)
+            for l,t,a,d in rule_list:
+                self._trace(Tracepoint.RULE, label=l, test=t, action=a, dest=d)
+                result = t(**self.context) if callable(t) else t == input
+                if result:
+                    self._trace(Tracepoint.RESULT, label=l, result=result)
+                    response = a(**self.context) if callable(a) else a
+                    self._trace(Tracepoint.RESPONSE, response=response)
+                    dest = d(**self.context) if callable(d) else d
+                    self._trace(Tracepoint.NEW_STATE, new_state=dest)
+                    if dest is not ...:
+                        if dest not in self.rules:
+                            self._trace(Tracepoint.UNKNOWN_STATE, new_state=dest)
+                        self.state = dest
+                    return response
+            else:
+                self._trace(Tracepoint.UNRECOGNIZED, input=input)
+                return None
+        except Exception as e:
+            # REM: it would be nice to not add this note if there was already a statemachine trace added, maybe that should be a note we could check for?
+            note = f"StateMachine context:\n    {format_context(**self.context)}"
+            e.add_note(note)
+            raise e
 #####
 
 
@@ -315,19 +339,6 @@ class CheckpointTracer(object):
         return [ self.format_transition(t) for t in transitions ]
 
     def format_transition(self, t):
-        format_parts = (
-            ("loop_count", "    ({loop_count} loops in '{state}' elided)\n"),
-            ("input", "{input_count}: {state}('{input}')"),
-            ("label", " > {label}"),
-            ("result", ": {result}"),
-            ("response", " -- {response}"),
-            ("new_state", " --> {new_state}"),
-        )
-        fmt = "".join( f for k,f in format_parts if k in t )
-        line = fmt.format(**t)
-        tp = t.get("tracepoint")
-        if tp != Tracepoint.NEW_STATE:
-            # Most transitions will finish at NEW_STATE, only annotate ones that don't
-            line += f" >> ({tp.name})"
-        return line
+        lc_lines = f"""    ({t["loop_count"]} loops in '{t["state"]}' elided)\n""" if "loop_count" in t else ""
+        return f"{lc_lines}{format_context(**t)}"
 #####
