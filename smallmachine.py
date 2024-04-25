@@ -192,8 +192,10 @@ class StateMachine(object):
                 return None
         except Exception as e:
             # REM: it would be nice to not add this note if there was already a statemachine trace added, maybe that should be a note we could check for?
-            note = f"StateMachine context:\n    {format_context(**self.context)}"
-            e.add_note(note)
+            notes = e.__notes__ if hasattr(e, "__notes__") else []
+            if not any( n.startswith("StateMachine Traceback") for n in notes ):  # HACK: Don't add the note if there's a statemachine traceback (or at least a note that looks like one)
+                note = f"StateMachine context:\n    {format_context(**self.context)}"
+                e.add_note(note)
             raise e
 #####
 
@@ -306,8 +308,10 @@ class CheckpointTracer(object):
         for check, err in self.checkpoints:
             msg = check(**self.context)
             if msg:
+                ex = err(msg)
                 trace_lines = "\n".join(self.format_trace())
-                raise err(f"StateMachine Traceback (most recent last):\n{trace_lines}\n{err.__name__}: {msg}")
+                ex.add_note(f"StateMachine Traceback (most recent last):\n{trace_lines}\n{err.__name__}: {msg}")
+                raise ex
 
         if self.compact and tracepoint == Tracepoint.NEW_STATE:
             self._fold_loop()
