@@ -5,8 +5,8 @@ from enum import Enum
 import re
 
 
-__ = object()  # Sentinel for default arguments not to be passed on
-def statemachine(rules=__, state=__, debug=False, history=__, checkpoints=__, tracer=None):
+__ = object()  # Placeholder for default arguments not to be passed on
+def statemachine(rules=__, state=__, debug=False, history=__, checkpoints=__, tracers=()):
     """Create a batteries-included state machine with convenience options.
 
     Returns a StateMachine pre-configured to reject unknown input and states; this is the most common way to set up a machine.  Optionally it can also have a verbose debugging tracer with configurable prefix added.
@@ -16,7 +16,7 @@ def statemachine(rules=__, state=__, debug=False, history=__, checkpoints=__, tr
     An additional tracer can also be passed in and it will be called before any default tracers.
     """
 
-    tracers = [tracer] if tracer else []
+    tracers = list(tracers)
     if debug is not False:
         dbg_args = {"prefix": debug} if debug is not True else {}
         dbg = PrefixTracer(**dbg_args)
@@ -25,10 +25,9 @@ def statemachine(rules=__, state=__, debug=False, history=__, checkpoints=__, tr
     checkpoints_args = {} if checkpoints is __ else {"checkpoints": checkpoints}
     history_args = {} if history is __ else {"history": history}
     tracers.append(CheckpointTracer(**checkpoints_args, **history_args))
-    tracer = MultiTracer(*tracers) if len(tracers) > 1 else tracers[0]
     state_args = {} if state is __ else {"state": state}
     rules_args = {} if rules is __ else {"rules": rules} 
-    return StateMachine(**rules_args, **state_args, tracer=tracer)
+    return StateMachine(**rules_args, **state_args, tracers=tracers)
 #####
 
 
@@ -125,7 +124,7 @@ class StateMachine(object):
     """A state machine engine that makes minimal assumptions but includes some nice conveniences and powerful extensibility.
     """
 
-    def __init__(self, rules=None, state=..., tracer=None):
+    def __init__(self, rules=None, state=..., tracers=()):
         """Create a state machine instance which can be called with input and returns output from evaluating the rules for the current state.
 
         The rules dictionary maps each state to a list of rule tuples, each of which includes a label, a test, an action, and a destination; more about rule elements in the __call__ documentation.
@@ -142,7 +141,7 @@ class StateMachine(object):
         if state is ...:
             state = next(iter(self.rules), None)
         self.state = state
-        self.tracer = tracer
+        self.tracers = list(tracers)
         self.context = {}
         self._input_count = 0
 
@@ -150,8 +149,8 @@ class StateMachine(object):
         """Updates the context and calls an external tracer if one is set."""
         self.context["tracepoint"] = tp
         self.context.update(vals)
-        if self.tracer:
-            self.tracer(tp, **vals)
+        for t in self.tracers:
+            t(tp, **vals)
 
     def __call__(self, input):
         """Tests an input against the explicit rules for the current state plus the implicit rules from the ... (Ellipsis) state.
@@ -245,16 +244,6 @@ def PrefixTracer(prefix="T>", printer=print):
         msg = f"{prefix} {tp.value.format(**vals)}" if prefix else tp.value.format(**vals)
         printer(msg)
     return t
-
-
-class MultiTracer:
-    """Combines multiple tracers; tracers list can be manipulated at any time to add or remove tracers."""
-    def __init__(self, *tracers):
-        self.tracers = list(tracers)
-
-    def __call__(self, tp, **vals):
-        for t in self.tracers:
-            t(tp, **vals)
 
 
 class CheckpointTracer(object):
