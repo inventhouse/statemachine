@@ -100,9 +100,8 @@ class Tracepoint(Enum):
     UNKNOWN_STATE = "\t(Unknown state: {new_state})"  # Consider raising UnknownStateError
 
 
-def format_context(**ctx):
-    """Format the statemachine context for a partial or complete transition of a machine."""
-    # REM: this doesn't format the full context, just (some of) the parts that describe a single transition; do we want it to format the full context (or at least more)?
+def format_transition(**t):
+    """Format key items of statemachine context representing a partial or complete transition of a machine."""
     format_parts = (
         ("input", "{input_count}: {state}('{input}')"),
         ("label", " > {label}"),
@@ -110,9 +109,9 @@ def format_context(**ctx):
         ("response", " -- {response}"),
         ("new_state", " --> {new_state}"),
     )
-    fmt = "".join( f for k,f in format_parts if k in ctx )
-    line = fmt.format(**ctx)
-    tp = ctx.get("tracepoint")
+    fmt = "".join( f for k,f in format_parts if k in t )
+    line = fmt.format(**t)
+    tp = t.get("tracepoint")
     if tp != Tracepoint.NEW_STATE:
         # Most transitions will finish at NEW_STATE, only annotate ones that don't
         name = tp.name if tp else "TRACEPOINT_MISSING"
@@ -196,7 +195,7 @@ class StateMachine(object):
             notes = e.__notes__ if hasattr(e, "__notes__") else []
             if not any( n.startswith("StateMachine Traceback") for n in notes ):
                 # HACK: Don't add the note if there's a statemachine traceback (or at least a note that looks like one)
-                note = f"StateMachine Context:\n    {format_context(**self.context)}"
+                note = f"StateMachine Context:\n    {format_transition(**self.context)}"
                 e.add_note(note)
             raise e
 #####
@@ -341,6 +340,6 @@ class CheckpointTracer(object):
         lines = []
         if "loop_count" in t:
             lines.append(f"    ({t['loop_count']} loops in '{t['state']}' elided)")
-        lines.append(format_context(**t))
+        lines.append(format_transition(**t))
         return lines
 #####
