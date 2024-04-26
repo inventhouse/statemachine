@@ -197,7 +197,7 @@ class StateMachine(object):
                 # HACK: Don't add the note if there's a statemachine traceback (or at least a note that looks like one)
                 note = f"StateMachine Context:\n    {format_transition(**self.context)}"
                 e.add_note(note)
-            raise e
+            raise
 #####
 
 
