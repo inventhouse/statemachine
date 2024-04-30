@@ -9,7 +9,7 @@ class StateMachine(object):
     """A state machine engine that makes minimal assumptions but includes some nice conveniences and powerful extensibility.
     """
 
-    def __init__(self, rules=None, state=None, tracer=lambda **_: None):
+    def __init__(self, rules, state=None, tracer=lambda **_: None):
         """Create a state machine instance which can be called with input and returns output from evaluating the rules for the current state.
 
         The rules dictionary maps each state to a list of rule tuples, each of which includes a label, a test, an action, and a destination; more about rule elements in the __call__ documentation.
@@ -46,28 +46,35 @@ class StateMachine(object):
             self._input_count += 1
             rule_list = self.rules[self.state] + self.rules.get(..., [])
             for l,t,a,d in rule_list:
-                result = t(**self.context) if callable(t) else t == input
+                ctx = {
+                    "machine": self, "state": self.state, 
+                    "input_count": self._input_count, "input": input,
+                    "label": l, "test": t, "action": a, "dest": d,
+                }
+                result = t(**ctx)
                 if result:
-                    response = a(**self.context) if callable(a) else a
-                    dest = d(**self.context) if callable(d) else d
-                    self.tracer()
-                    if dest is not ...:
-                        self.state = dest
+                    response = a(result=result, **ctx)
+                    self.tracer(
+                        "{input_count}: {state}('{input}') > {label}: {result} -- {response} --> {dest}",
+                        result=result, response=response, **ctx,
+                    )
+                    if d is not ...:
+                        self.state = d
                     return response
             else:
-                return None
+                raise ValueError(f"Unrecognized input '{input}'")
         except Exception as e:
-            #     note = f"StateMachine Context:\n    {format_transition(**self.context)}"
-            #     e.add_note(note)
+            note = f"StateMachine processing  {self._input_count}: {self.state}('{input}')"
+            e.add_note(note)
             raise
 #####
 
 
 ###  Tracing  ###
-# def PrefixTracer(prefix="T>", printer=print):
-#     """Prints tracepoints with a distinctive prefix and, optionally, to a separate destination than other output"""
-#     def t(tp, **vals):
-#         msg = f"{prefix} {tp.value.format(**vals)}" if prefix else tp.value.format(**vals)
-#         printer(msg)
-#     return t
+def Tracer(prefix="T>", printer=print):
+    """Prints tracepoint with a distinctive prefix and, optionally, to a separate destination than other output"""
+    def t(tp, **vals):
+        msg = f"{prefix} {tp.value.format(**vals)}" if prefix else tp.value.format(**vals)
+        printer(msg)
+    return t
 #####
