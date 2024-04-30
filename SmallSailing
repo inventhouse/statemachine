@@ -28,8 +28,7 @@ class Location:
     # Demonstrate a simple enter-action pattern
     def enter(self, **_):
         """Enter action: describe the location"""
-        print(adlib(self.description))
-        return self
+        return adlib(self.description)
 
     def __str__(self):
         return self.name
@@ -125,7 +124,9 @@ world = sm.StateMachine(rules, "start")
 ###  Main  ###
 print("Smooth Sailing", flush=True)
 time.sleep(0.1)  # HACK: wait for flush; sometimes prompt prints out-of-order with print output in spite of flush=True
-world(input("Press enter to start. "))
+out = world(input("Press enter to start. "))
+if out:
+    print(out, flush=True)
 while True:
     time.sleep(0.1)  # HACK: wait for flush
     out = world(input("> "))
