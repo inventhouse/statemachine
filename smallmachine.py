@@ -1,9 +1,11 @@
 # SmallMachine: Copyright © 2021-2024 Benjamin Holt - MIT License
+# from collections import namedtuple
 
 #####
 
 
 ###  State Machine Core  ###
+# BaseContext = namedtuple("BaseContext", ("machine", "state", "input_count", "input", "label", "test", "action", "dest"))
 
 class StateMachine(object):
     """A state machine engine that makes minimal assumptions but includes some nice conveniences and powerful extensibility.
@@ -22,7 +24,7 @@ class StateMachine(object):
         """
         # Starting rules and state can be set after init, but really should be set before using the machine
         # rules dict looks like { state: [(label, test, action, new_state), ...], ...}
-        self.rules = rules  # if rules is not None else {}
+        self.rules = rules
         self.state = state
         self.tracer = tracer
         self._input_count = 0
