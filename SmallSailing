@@ -1,0 +1,137 @@
+#!/usr/bin/env python3
+# Copyright (c) 2019-2024 Benjamin Holt -- MIT License
+
+"""
+Tiny, seemingly pointless, interactive fiction game to play with `smallmachine`
+"""
+import random
+import time
+
+import statemachine as sm
+#####
+
+
+###  Helpers  ###
+def adlib(x, joiner=" "):
+    "Dynamically assemble messages from nested collections of parts.  Tuples are pieces to be strung together, lists are variants to choose among; anything else is used as a string"
+    if type(x) is tuple:
+        return joiner.join([ adlib(i) for i in x ])  # Joining with "|" can be helpful to see how messages get put together
+    if type(x) is list:
+        return adlib(random.choice(x))
+    return str(x)
+
+class Location:
+    def __init__(self, name, description):
+        self.name = name
+        self.description = description
+
+    # Demonstrate a simple enter-action pattern
+    def enter(self, **_):
+        """Enter action: describe the location"""
+        print(adlib(self.description))
+        return self
+
+    def __str__(self):
+        return self.name
+#####
+
+
+###  Fixtures  ###
+above = Location(
+    "above", 
+    ("You are on the deck of a small sailboat on a", ["calm", "serene", "blue", "clear", "glistening",], "sea; an open hatch leads down.")
+)
+
+below = Location(
+    "below", 
+    ("You are in the", ["cozy", "homey", "snug",], "cabin of a small boat, with just enough room for a bunk and a tiny desk with a logbook; a hatch leads up.")
+)
+
+messages = {
+    "sail": ("You", ["set", "adjust", "tack",], "your sail", ["to", "toward", "for"], "{}."),
+    "sleep": ("The bunk is", ["soft", "comfortable", "warm", "cozy",], "and you", ["rest", "sleep", "snooze", "nap", "doze",], ["well.", "deeply.", "blissfully.", "nicely"]),
+    "log": [("Weather was", ["fair.", "good.", "lovely.",]),
+        (
+            ["Good", "Quick", "Slow",], "sailing",
+            [
+                "today", 
+                ("this", ["morning.", "afternoon.", "evening.",])
+            ]
+        ),
+    ],
+}
+#####
+
+
+###  Actions  ###
+def look_action(state, **_):
+    return f"{adlib(state.description)}"
+
+def sail_action(**_):
+    s = input("Where to? > ")
+    return adlib(messages["sail"]).format(s)
+
+log_entries = [(["Fair", "Nice", "Brisk",], "weather."),]  # Put one bogus entry in 'cos choose (in adlib) can't handle an empty list
+def write_action(**_):
+    s = input("What do you want to say? > ")
+    log_entries.append(s)
+    return "Written"
+
+def explode_action(**_):
+    raise ValueError("Ka-Boom!")
+#####
+
+
+###  Rules  ###
+rules = {
+    "start": [
+        ("start", lambda **_: True, None, above.enter),
+    ],
+    above: [
+        ("go below", sm.in_test(["d", "down", "below",]), None, below.enter),
+        ("sail", sm.in_test(["s", "sail",]), sail_action, ...),
+    ],
+    below: [
+        ("go above", sm.in_test(["u", "up", "above",]), None, above.enter),
+        ("read log", sm.in_test(["r", "read", "read logbook",]), lambda **_: adlib([messages["log"], log_entries]), ...),
+        ("write log", sm.in_test(["w", "write", "log",]), write_action, ...),
+        ("sleep", sm.in_test(["s", "sleep", "bunk", "lie down", "lay down", "nap",]), lambda **_: adlib(messages["sleep"]), ...),
+    ],
+    ...: [
+        ("look", sm.in_test(["l", "look",]), look_action, ...),
+        ("kaboom", "kaboom", explode_action, ...),
+        ("warp", "warp", "Warp out of this dimention", "elsewhere"),
+        ("anything except crash", lambda input, **_: input != "crash", "Sorry, you can't do that.", ...),
+    ]
+}
+#####
+
+
+###  World  ###
+# Custom checkpoint
+class TabooInputError(ValueError):
+    """Raised if input is ever 'taboo'."""
+    @classmethod
+    def checkpoint(cls):
+        def check(input, **ctx):
+            if input.strip().lower() == "taboo":
+                return "{input_count}: '{input}' is forbidden".format(input=input, **ctx)
+
+        return (check, cls)
+
+world = sm.statemachine(rules, checkpoints=(TabooInputError.checkpoint(), ...))
+# world = sm.statemachine(rules, checkpoints=(TabooInputError.checkpoint(), ...), history=20)  # Keep a deeper trace, -1 for unlimited
+# world = sm.statemachine(rules, checkpoints=(TabooInputError.checkpoint(), ...), debug="***")  # Add debugging tracer with custom prefix, can be combined with history depth
+#####
+
+
+###  Main  ###
+print("Smooth Sailing", flush=True)
+time.sleep(0.1)  # HACK: wait for flush; sometimes prompt prints out-of-order with print output in spite of flush=True
+world(input("Press enter to start. "))
+while True:
+    time.sleep(0.1)  # HACK: wait for flush
+    out = world(input("> "))
+    if out:
+        print(out, flush=True)
+#####
