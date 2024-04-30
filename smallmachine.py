@@ -8,7 +8,7 @@ class StateMachine(object):
     """A state machine engine that makes minimal assumptions but includes some nice conveniences and powerful extensibility.
     """
 
-    def __init__(self, rules, state, tracer=lambda **_: None):
+    def __init__(self, rules, state, tracer=lambda fmt, **_: None):
         """Create a state machine instance which can be called with input and returns output from evaluating the rules for the current state.
 
         The rules dictionary maps each state to a list of rule tuples, each of which includes a label, a test, an action, and a destination; more about rule elements in the __call__ documentation.

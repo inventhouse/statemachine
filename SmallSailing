@@ -7,7 +7,7 @@ Tiny, seemingly pointless, interactive fiction game to play with `smallmachine`
 import random
 import time
 
-import statemachine as sm
+import smallmachine as sm
 #####
 
 
@@ -15,7 +15,7 @@ import statemachine as sm
 def adlib(x, joiner=" "):
     "Dynamically assemble messages from nested collections of parts.  Tuples are pieces to be strung together, lists are variants to choose among; anything else is used as a string"
     if type(x) is tuple:
-        return joiner.join([ adlib(i) for i in x ])  # Joining with "|" can be helpful to see how messages get put together
+        return joiner.join( adlib(i) for i in x )  # Joining with "|" can be helpful to see how messages get put together
     if type(x) is list:
         return adlib(random.choice(x))
     return str(x)
@@ -33,6 +33,15 @@ class Location:
 
     def __str__(self):
         return self.name
+
+def input_eq(x):
+    return lambda input, **_: input == x
+
+def input_in(*args):
+    return lambda input, **_: input in args
+
+def enter_action(dest, **_):
+    return dest.enter()
 #####
 
 
@@ -85,43 +94,31 @@ def explode_action(**_):
 ###  Rules  ###
 rules = {
     "start": [
-        ("start", lambda **_: True, None, above.enter),
+        ("start", lambda **_: True, enter_action, above),
     ],
     above: [
-        ("go below", sm.in_test(["d", "down", "below",]), None, below.enter),
-        ("sail", sm.in_test(["s", "sail",]), sail_action, ...),
+        ("go below", input_in("d", "down", "below"), enter_action, below),
+        ("sail", input_in("s", "sail"), sail_action, ...),
     ],
     below: [
-        ("go above", sm.in_test(["u", "up", "above",]), None, above.enter),
-        ("read log", sm.in_test(["r", "read", "read logbook",]), lambda **_: adlib([messages["log"], log_entries]), ...),
-        ("write log", sm.in_test(["w", "write", "log",]), write_action, ...),
-        ("sleep", sm.in_test(["s", "sleep", "bunk", "lie down", "lay down", "nap",]), lambda **_: adlib(messages["sleep"]), ...),
+        ("go above", input_in("u", "up", "above"), enter_action, above),
+        ("read log", input_in("r", "read", "read logbook"), lambda **_: adlib([messages["log"], log_entries]), ...),
+        ("write log", input_in("w", "write", "log"), write_action, ...),
+        ("sleep", input_in("s", "sleep", "bunk", "lie down", "lay down", "nap"), lambda **_: adlib(messages["sleep"]), ...),
     ],
     ...: [
-        ("look", sm.in_test(["l", "look",]), look_action, ...),
-        ("kaboom", "kaboom", explode_action, ...),
-        ("warp", "warp", "Warp out of this dimention", "elsewhere"),
-        ("anything except crash", lambda input, **_: input != "crash", "Sorry, you can't do that.", ...),
+        ("look", input_in("l", "look"), look_action, ...),
+        ("kaboom", input_eq("kaboom"), explode_action, ...),
+        ("warp", input_eq("warp"), lambda **_: "Warp out of this dimention", "elsewhere"),
+        ("anything except crash", lambda input, **_: input != "crash", lambda **_: "Sorry, you can't do that.", ...),
     ]
 }
 #####
 
 
 ###  World  ###
-# Custom checkpoint
-class TabooInputError(ValueError):
-    """Raised if input is ever 'taboo'."""
-    @classmethod
-    def checkpoint(cls):
-        def check(input, **ctx):
-            if input.strip().lower() == "taboo":
-                return "{input_count}: '{input}' is forbidden".format(input=input, **ctx)
-
-        return (check, cls)
-
-world = sm.statemachine(rules, checkpoints=(TabooInputError.checkpoint(), ...))
-# world = sm.statemachine(rules, checkpoints=(TabooInputError.checkpoint(), ...), history=20)  # Keep a deeper trace, -1 for unlimited
-# world = sm.statemachine(rules, checkpoints=(TabooInputError.checkpoint(), ...), debug="***")  # Add debugging tracer with custom prefix, can be combined with history depth
+world = sm.StateMachine(rules, "start")
+# world = sm.StateMachine(rules, "start", tracer=sm.Debug())
 #####
 
 
