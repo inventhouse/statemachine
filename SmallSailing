@@ -7,7 +7,7 @@ Tiny, seemingly pointless, interactive fiction game to play with `smallmachine`
 import random
 import time
 
-import smallmachine as sm
+import statemachine as sm
 #####
 
 
