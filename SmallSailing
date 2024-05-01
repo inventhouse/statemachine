@@ -117,7 +117,7 @@ rules = {
 
 ###  World  ###
 world = sm.StateMachine(rules, "start")
-# world = sm.StateMachine(rules, "start", tracer=sm.Debug())
+# world = sm.StateMachine(rules, "start", tracer=True)
 #####
 
 
