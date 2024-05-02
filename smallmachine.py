@@ -41,6 +41,8 @@ class StateMachine(object):
         - Action: when a test succeeds, the action is called with context arguments, including 'result' from the test above; the action's response will be included in the context arguments for the tracer and returned by this call.
 
         - Destination: finally, the machine will transition to the destination state unless the destination is ... (Ellipsis).
+
+        At the end of a successful transition, the internal and any custom tracer is called with a transition format and context arguments.
         """
         try:
             self._input_count += 1
@@ -69,8 +71,12 @@ class StateMachine(object):
 
     _transition_fmt = "{input_count}: {state}('{input}') > {label}: {result} -- {response} --> {new_state}"
     def _trace(self, **context):
-        if self.tracer:  # TODO: consider reintroducing custom tracer etc.
-            print(f"T> {self._transition_fmt.format(**context)}")
+        if self.tracer:
+            if callable(self.tracer):
+                self.tracer(self._transition_fmt, **context)
+            else:
+                prefix = self.tracer if self.tracer is not True else "T>"
+                print(f"{prefix} {self._transition_fmt.format(**context)}")
         self.history.append(context)
 
     def format_trace(self):
@@ -80,10 +86,10 @@ class StateMachine(object):
 
 
 ###  Tracing  ###
-# def Debug(prefix="T>", printer=print):
-#     """Prints tracepoint with a distinctive prefix and, optionally, to a separate destination than other output"""
-#     def t(fmt, **vals):
-#         msg = f"{prefix} {fmt.format(**vals)}" if prefix else fmt.format(**vals)
-#         printer(msg)
-#     return t
+def PrefixTracer(prefix="T>", printer=print):
+    """Prints tracepoint with a distinctive prefix and, optionally, to a separate destination than other output"""
+    def t(fmt, **vals):
+        msg = f"{prefix} {fmt.format(**vals)}" if prefix else fmt.format(**vals)
+        printer(msg)
+    return t
 #####
