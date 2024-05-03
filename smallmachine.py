@@ -27,6 +27,16 @@ class StateMachine(object):
         self.history = deque(maxlen=history)
         self._input_count = 0
 
+    @property
+    def state(self):
+        return self._state
+
+    @state.setter
+    def state(self, value):
+        if value not in self.rules:
+            raise ValueError(f"State '{value}' is not in the ruleset")
+        self._state = value
+
     def __call__(self, input):
         """Tests an input against the explicit rules for the current state plus the implicit rules from the ... (Ellipsis) state.
 
@@ -46,8 +56,6 @@ class StateMachine(object):
         """
         self._input_count += 1
         try:
-            if self.state not in self.rules:
-                raise RuntimeError(f"State '{self.state}' is not in the ruleset")
             rule_list = self.rules[self.state] + self.rules.get(..., [])
             for l,t,a,d in rule_list:
                 context = {
