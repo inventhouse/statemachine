@@ -18,7 +18,7 @@ class StateMachine(object):
 
         State is simply the starting state for the machine.
 
-        Tracer is an optional callable that takes a format and context arguments; it is called after a successful rule is evaluated, right before the machine transitions.  Debug() is a simple and effective tracer.
+        Tracer can enable built-in tracing of machine transitions or can be an optional callable that takes a format and context arguments; it is called after a transition.
         """
         # rules dict looks like { state: [(label, test, action, new_state), ...], ...}
         self.rules = rules
@@ -65,7 +65,7 @@ class StateMachine(object):
             else:
                 raise ValueError(f"State '{self.state}' did not recognize input {self._input_count}: '{input}'")
         except Exception as e:
-            trace_lines = "\n  ".join(self.format_trace())
+            trace_lines = "\n  ".join(self.trace_lines())
             e.add_note(f"StateMachine Traceback (most recent last):\n  {trace_lines}\n{type(e).__name__}: {e}")
             raise
 
@@ -77,19 +77,20 @@ class StateMachine(object):
             else:
                 prefix = self.tracer if self.tracer is not True else "T>"
                 print(f"{prefix} {self._transition_fmt.format(**context)}")
+
+        if self.history and context["state"] == context["new_state"]:
+            context["loop_count"] = 1
+            prev = self.history[-1]
+            if "loop_count" in prev and prev["state"] == context["state"]:
+                context["loop_count"] += prev["loop_count"]
+                self.history.pop()
         self.history.append(context)
 
-    def format_trace(self):
-        """Returns a list of trace lines from the history of the machine's transitions."""
-        return [self._transition_fmt.format(**context) for context in self.history]
-#####
-
-
-###  Tracing  ###
-def PrefixTracer(prefix="T>", printer=print):
-    """Prints tracepoint with a distinctive prefix and, optionally, to a separate destination than other output"""
-    def t(fmt, **vals):
-        msg = f"{prefix} {fmt.format(**vals)}" if prefix else fmt.format(**vals)
-        printer(msg)
-    return t
+    def trace_lines(self):
+        """Returns trace lines from the history of the machine's transitions."""
+        for context in self.history:
+            lc = context.get("loop_count", 0)
+            if lc > 1:
+                yield f"    ({lc - 1} loops in {context['state']} elided)"
+            yield self._transition_fmt.format(**context)
 #####
