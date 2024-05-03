@@ -62,9 +62,7 @@ class StateMachine(object):
         try:
             rule_list = self.rules[self.state] + self.rules.get(..., [])
             for l,t,a,d in rule_list:
-                context.update({
-                    "label": l, "test": t, "action": a, "dest": d,
-                })
+                context.update({"label": l, "test": t, "action": a, "dest": d})
                 result = t(**context)
                 if result:
                     response = a(result=result, **context)
