@@ -44,9 +44,11 @@ class StateMachine(object):
 
         At the end of a successful transition, the internal and any custom tracer is called with a transition format and context arguments.
         """
+        self._input_count += 1
         try:
-            self._input_count += 1
-            rule_list = self.rules.get(self.state, []) + self.rules.get(..., [])
+            if self.state not in self.rules:
+                raise RuntimeError(f"State '{self.state}' is not in the ruleset")
+            rule_list = self.rules[self.state] + self.rules.get(..., [])
             for l,t,a,d in rule_list:
                 context = {
                     "machine": self, "state": self.state, 
@@ -59,14 +61,13 @@ class StateMachine(object):
                     if d is not ...:
                         self.state = d
                     self._trace(result=result, response=response, new_state=self.state, **context,)
-                    if self.state not in self.rules:
-                        raise RuntimeError(f"State '{self.state}' is not in the ruleset")
                     return response
             else:
                 raise ValueError(f"State '{self.state}' did not recognize input {self._input_count}: '{input}'")
         except Exception as e:
-            trace_lines = "\n  ".join(self.trace_lines())
-            e.add_note(f"StateMachine Traceback (most recent last):\n  {trace_lines}\n{type(e).__name__}: {e}")
+            if self.history:
+                trace_lines = "\n  ".join(self.trace_lines())
+                e.add_note(f"StateMachine Traceback (most recent last):\n  {trace_lines}\n{type(e).__name__}: {e}")
             raise
 
     _transition_fmt = "{input_count}: {state}('{input}') > {label}: {result} -- {response} --> {new_state}"
