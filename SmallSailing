@@ -93,7 +93,7 @@ def explode_action(**_):
 ###  Rules  ###
 rules = {
     "start": [
-        ("start", lambda **_: True, enter_action, above),
+        ("start", lambda input, **_: input != "crash", enter_action, above),
     ],
     above: [
         ("go below", input_in("d", "down", "below"), enter_action, below),
