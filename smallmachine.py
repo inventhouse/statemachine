@@ -87,7 +87,7 @@ class StateMachine(object):
         self.history.append(context)
 
     def trace_lines(self):
-        """Returns trace lines from the history of the machine's transitions."""
+        """Returns trace lines from the history of transitions."""
         for context in self.history:
             lc = context.get("loop_count", 0)
             if lc > 1:
