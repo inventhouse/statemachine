@@ -40,9 +40,6 @@ class Location:
             return l.enter(state=state, destination=destination, **ctx)
 
 
-def input_eq(x):
-    return lambda input, **_: input == x
-
 def input_in(*args):
     return lambda input, **_: input in args
 #####
@@ -108,8 +105,8 @@ rules = {
     ],
     ...: [
         ("look", input_in("l", "look"), Location.enter_action, ...),
-        ("kaboom", input_eq("kaboom"), explode_action, ...),
-        ("warp", input_eq("warp"), lambda **_: "Warp out of this dimension", "elsewhere"),
+        ("kaboom", "kaboom", explode_action, ...),
+        ("warp", "warp", lambda **_: "Warp out of this dimension", "elsewhere"),
         ("anything except crash", lambda input, **_: input != "crash", lambda **_: "Sorry, you can't do that.", ...),
     ]
 }
