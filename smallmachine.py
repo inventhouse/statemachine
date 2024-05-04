@@ -46,9 +46,9 @@ class StateMachine(object):
 
         - Label: usually a string, used for identifying the "successful" rule when tracing.
 
-        - Test: called with context arguments; if the result is truish, the rule succeeds, no other rules are tested.
+        - Test: called with context arguments; if the result is truish, the rule succeeds, no other rules are tested.  If the test is not callable, it is compared (equal) to the input.
 
-        - Action: when a test succeeds, the action is called with context arguments, including 'result' from the test above; the action's response will be included in the context arguments for the tracer and returned by this call.
+        - Action: when a test succeeds, the action is called with context arguments, including 'result' from the test above; the action's response will be included in the context arguments for the tracer and returned by this call.  If the action is not callable, it is returned as the response.
 
         - Destination: finally, the machine will transition to the destination state unless the destination is ... (Ellipsis).
 
