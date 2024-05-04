@@ -55,13 +55,11 @@ class ChatParser:
         self.current_message = None
 
         def input_match(regex):
+            regex = re.compile(regex)
             return lambda input, **_: regex.match(input)
 
-        blank_re = re.compile(r"\s*$")
-        blank_test = input_match(blank_re)
-
-        header_re = re.compile(r"(?P<time_str>(?P<hour>\d{2}):(?P<minute>\d{2}):(?P<second>\d{2})) From (?P<from>.+?) to (?P<to>.+?):")
-        header_test = input_match(header_re)
+        blank_test = input_match(r"\s*$")
+        header_test = input_match(r"(?P<time_str>(?P<hour>\d{2}):(?P<minute>\d{2}):(?P<second>\d{2})) From (?P<from>.+?) to (?P<to>.+?):")
         def begin_message(result, **_):
             # Push any previous message onto the stack and start a new one
             if self.current_message:
@@ -73,8 +71,7 @@ class ChatParser:
                 recipient=result.group("to"),
             )
 
-        reaction_re = re.compile(r'\s+Reacted to "(?P<prefix>.+?)([.]{3})?" with (?P<reaction>.+)')
-        reaction_test = input_match(reaction_re)
+        reaction_test = input_match(r'\s+Reacted to "(?P<prefix>.+?)([.]{3})?" with (?P<reaction>.+)')
         def add_reaction(result, **_):
             # result = self.parser.context["result"]
             prefix = result.group("prefix")
@@ -84,8 +81,7 @@ class ChatParser:
                 previous_message.reactions.append(reaction_pair)
             self.current_message = None  # Reactions don't contain actual messages
 
-        remove_reaction_re = re.compile(r'\s+Removed a (?P<reaction>.+?) reaction from "(?P<prefix>.+?)([.]{3})?"')
-        remove_reaction_test = input_match(remove_reaction_re)
+        remove_reaction_test = input_match(r'\s+Removed a (?P<reaction>.+?) reaction from "(?P<prefix>.+?)([.]{3})?"')
         def remove_reaction(result, **_):
             # result = self.parser.context["result"]
             prefix = result.group("prefix")
@@ -96,8 +92,7 @@ class ChatParser:
             # Ignore mismatched reaction removals
             self.current_message = None  # Reactions don't contain actual messages
 
-        reply_re = re.compile(r'\s+Replying to "(?P<prefix>.+?)([.]{3})?"')
-        reply_test = input_match(reply_re)
+        reply_test = input_match(r'\s+Replying to "(?P<prefix>.+?)([.]{3})?"')
         def add_reply(result, **_):
             # result = self.parser.context["result"]
             prefix = result.group("prefix")
@@ -107,8 +102,7 @@ class ChatParser:
                 # self.current_message.primary_message = primary_message
                 primary_message.replies.append(self.current_message)
 
-        message_line_re = re.compile(r"\s+(?P<line>.*)")
-        message_line_test = input_match(message_line_re)
+        message_line_test = input_match(r"\s+(?P<line>.*)")
         def add_message_line(result, **_):
             # result = self.parser.context["result"]
             l = result.group("line")
