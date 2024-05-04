@@ -63,9 +63,9 @@ class StateMachine(object):
             rule_list = self.rules[self.state] + self.rules.get(..., [])
             for l,t,a,d in rule_list:
                 context.update({"label": l, "test": t, "action": a, "destination": d})
-                result = t(**context)
+                result = t(**context) if callable(t) else t == input
                 if result:
-                    response = a(result=result, **context)
+                    response = a(result=result, **context) if callable(a) else a
                     if d is not ...:
                         self.state = d
                     self._trace(result=result, response=response, new_state=self.state, **context,)
