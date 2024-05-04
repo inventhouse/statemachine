@@ -32,10 +32,10 @@ class StateMachine(object):
         return self._state
 
     @state.setter
-    def state(self, value):
-        if value not in self.rules:
-            raise ValueError(f"State '{value}' is not in the ruleset")
-        self._state = value
+    def state(self, s):
+        if s not in self.rules:
+            raise RuntimeError(f"State '{s}' is not in the ruleset")
+        self._state = s
 
     def __call__(self, input):
         """Tests an input against the explicit rules for the current state plus the implicit rules from the ... (Ellipsis) state.
@@ -62,7 +62,7 @@ class StateMachine(object):
         try:
             rule_list = self.rules[self.state] + self.rules.get(..., [])
             for l,t,a,d in rule_list:
-                context.update({"label": l, "test": t, "action": a, "dest": d})
+                context.update({"label": l, "test": t, "action": a, "destination": d})
                 result = t(**context)
                 if result:
                     response = a(result=result, **context)
@@ -76,7 +76,7 @@ class StateMachine(object):
             if self.history:
                 trace_lines = "\n  ".join(self.trace_lines())
                 e.add_note(f"StateMachine Traceback (most recent last):\n  {trace_lines}")
-            e.add_note(f"  {self._input_count}: {self.state}('{input}') >> \n{type(e).__name__}: {e}")
+            e.add_note(f"  {self._input_count}: {self.state}('{input}') >> 💥\n{type(e).__name__}: {e}")
             raise
 
     _transition_fmt = "{input_count}: {state}('{input}') > {label}: {result} -- {response} --> {new_state}"
