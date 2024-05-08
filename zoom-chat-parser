@@ -64,7 +64,6 @@ class ChatParser:
             # Push any previous message onto the stack and start a new one
             if self.current_message:
                 self.message_stack.appendleft(self.current_message)
-            # result = self.parser.context["result"]
             self.current_message = ChatMessage(
                 time_str=result.group("time_str"),
                 sender=result.group("from"),
@@ -73,7 +72,6 @@ class ChatParser:
 
         reaction_test = input_match(r'\s+Reacted to "(?P<prefix>.+?)([.]{3})?" with (?P<reaction>.+)')
         def add_reaction(result, **_):
-            # result = self.parser.context["result"]
             prefix = result.group("prefix")
             reaction_pair = (result.group("reaction"), self.current_message.sender)  # Store the sender for possible removals
             previous_message = self.find_previous_message(prefix)
@@ -83,7 +81,6 @@ class ChatParser:
 
         remove_reaction_test = input_match(r'\s+Removed a (?P<reaction>.+?) reaction from "(?P<prefix>.+?)([.]{3})?"')
         def remove_reaction(result, **_):
-            # result = self.parser.context["result"]
             prefix = result.group("prefix")
             reaction_pair = (result.group("reaction"), self.current_message.sender)  # Only remove reactions from the same sender
             previous_message = self.find_previous_message(prefix)
@@ -94,7 +91,6 @@ class ChatParser:
 
         reply_test = input_match(r'\s+Replying to "(?P<prefix>.+?)([.]{3})?"')
         def add_reply(result, **_):
-            # result = self.parser.context["result"]
             prefix = result.group("prefix")
             self.current_message.primary_message_prefix = prefix
             primary_message = self.find_previous_message(prefix)
@@ -104,7 +100,6 @@ class ChatParser:
 
         message_line_test = input_match(r"\s+(?P<line>.*)")
         def add_message_line(result, **_):
-            # result = self.parser.context["result"]
             l = result.group("line")
             self.current_message.message_lines.append(l)
 
