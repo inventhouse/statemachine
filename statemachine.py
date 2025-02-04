@@ -173,19 +173,19 @@ class StateMachine(object):
             rule_list = self.rules.get(self.state, []) + self.rules.get(..., [])
             if not rule_list:
                 self._trace(Tracepoint.NO_RULES, state=self.state)
-            for l,t,a,d in rule_list:
-                self._trace(Tracepoint.RULE, label=l, test=t, action=a, dest=d)
-                result = t(**self.context) if callable(t) else t == input
+            for label, test, action, dest in rule_list:
+                self._trace(Tracepoint.RULE, label=label, test=test, action=action, dest=dest)
+                result = test(**self.context) if callable(test) else test == input
                 if result:
-                    self._trace(Tracepoint.RESULT, label=l, result=result)
-                    response = a(**self.context) if callable(a) else a
+                    self._trace(Tracepoint.RESULT, label=label, result=result)
+                    response = action(**self.context) if callable(action) else action
                     self._trace(Tracepoint.RESPONSE, response=response)
-                    dest = d(**self.context) if callable(d) else d
-                    self._trace(Tracepoint.NEW_STATE, new_state=dest)
-                    if dest is not ...:
-                        if dest not in self.rules:
-                            self._trace(Tracepoint.UNKNOWN_STATE, new_state=dest)
-                        self.state = dest
+                    new_state = dest(**self.context) if callable(dest) else dest
+                    self._trace(Tracepoint.NEW_STATE, new_state=new_state)
+                    if new_state is not ...:
+                        if new_state not in self.rules:
+                            self._trace(Tracepoint.UNKNOWN_STATE, new_state=new_state)
+                        self.state = new_state
                     return response
             else:
                 self._trace(Tracepoint.UNRECOGNIZED, input=input)
