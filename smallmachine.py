@@ -50,7 +50,7 @@ class StateMachine(object):
 
         - Action: when a test succeeds, the action is called with context arguments, including 'result' from the test above; the action's response will be included in the context arguments for the tracer and returned by this call.  If the action is not callable, it is returned as the response.
 
-        - Destination: finally, the machine will transition to the destination state unless the destination is ... (Ellipsis).
+        - Destination: finally, the machine will transition to the destination state unless the destination is ... (Ellipsis); in that case, the action can modify the state directly (e.g. via 'machine' in the context) to push/pop states, implement non-deterministic transitions, etc.
 
         At the end of a successful transition, the internal and any custom tracer is called with a transition format and context arguments.
         """
