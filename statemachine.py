@@ -154,7 +154,7 @@ class StateMachine(object):
     def __call__(self, input):
         """Tests an input against the explicit rules for the current state plus the implicit rules from the ... (Ellipsis) state.
 
-        As the rules are evaluated, a context dictionary is built; these keys and values are available to callable rule components as keyword arguments.  Context arguments available when rules are evaluated are: input, input_count, state, and elements of the currently evaluating rule: label, test, action, and dest.
+        As the rules are evaluated, a context dictionary is built; these keys and values are available to callable rule components as keyword arguments.  Context arguments available when rules are evaluated are: machine, input, input_count, state, and elements of the currently evaluating rule: label, test, action, and dest.
 
         Each rule consists of a label, test, action, and destination, which work as follows:
 
@@ -167,7 +167,7 @@ class StateMachine(object):
         - Destination: finally, if destination is callable it will be called with context arguments, including 'result' and 'response' above, to get the destination state, otherwise the literal value will be the destination.  If the destination state is '...', the machine will remain in the same state (self-transition or "loop".)  Callable destinations can implement state push/pop for recursion, state exit/enter actions, non-deterministic state changes, and other interesting things.
         """
         try:
-            self.context = {}
+            self.context = {"machine": self}
             self._input_count += 1
             self._trace(Tracepoint.INPUT, input_count=self._input_count, state=self.state, input=input)
             rule_list = self.rules.get(self.state, []) + self.rules.get(..., [])
