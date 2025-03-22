@@ -74,7 +74,7 @@ class StateMachine(object):
                 raise ValueError(f"State '{self.state}' did not recognize input {self._input_count}: '{input}'")
         except Exception as e:
             if self.history:
-                trace_lines = "\n  ".join(self.trace_lines())
+                trace_lines = "\n  ".join(self.build_trace())
                 e.add_note(f"StateMachine Traceback (most recent last):\n  {trace_lines}")
             e.add_note(f"  {self._input_count}: {self.state}('{input}') >> 💥\n{type(e).__name__}: {e}")
             raise
@@ -88,6 +88,7 @@ class StateMachine(object):
                 prefix = self.tracer if self.tracer is not True else "T>"
                 print(f"{prefix} {self._transition_fmt.format(**context)}")
 
+        # History and folding
         if self.history and context["state"] == context["new_state"]:
             context["loop_count"] = 1
             prev = self.history[-1]
@@ -96,7 +97,7 @@ class StateMachine(object):
                 self.history.pop()
         self.history.append(context)
 
-    def trace_lines(self):
+    def build_trace(self):
         """Returns trace lines from the history of transitions."""
         for context in self.history:
             lc = context.get("loop_count", 0)
