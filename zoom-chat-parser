@@ -118,6 +118,7 @@ class ChatParser:
             "reply_blank": [
                 # Blank line between "Replying to" and message is part of the format, not part of the message
                 ("blank", blank_test, None, "message_lines"),
+                ("line", message_line_test, add_message_line, "message_lines"),  # Found a case where reply did not have a blank line
             ],
             "message_lines": [
                 ("header", header_test, begin_message, "message"),
